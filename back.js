@@ -10,6 +10,9 @@ const inventory = require('./modules/inventory');
 const suppliers = require('./modules/suppliers');
 const clients = require('./modules/clients');
 const computers = require('./modules/computers');
+const problems = require('./modules/problems');
+const history = require('./modules/history');
+const orders = require('./modules/orders');
 
 const saltRounds = 10;
 const myPlaintextPassword = 'DWAtesty123';
@@ -49,7 +52,7 @@ bcrypt.genSalt(saltRounds, async (err, salt) => {
 
 const app = express();
 app.use(protectRoutes);
-app.use('/', [computers, inventory, suppliers, clients]);
+app.use('/', [computers, inventory, suppliers, clients, problems, history, orders]);
 
 const invalidCredsMessage = 'Invalid login credentials';
 
@@ -123,10 +126,6 @@ app.post('/sets-assemble/', async (req, res) => {
 });
 app.post('/sets-disassemble/', async (req, res) => {
   `In the options there will be different parts ids which will then assemble the computer and add it to the database`;
-});
-
-app.get('/problems/', async (req, res) => {
-  `Get all the problems from the database and return it in an array, options would be if the ones that are being pulled out are finished or not`;
 });
 
 app.get('/problems/:id', async (req, res) => {

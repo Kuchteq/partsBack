@@ -3,6 +3,7 @@ const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
 const withPaginSort = require('../functions/pagination');
+const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());
 
@@ -59,11 +60,11 @@ router.get('/suppliers/:id', async (req, res) => {
   });
 });
 
-router.post('/suppliers/', async (req, res) => {
+router.post('/suppliers', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
   const QS = `INSERT INTO suppliers (name, join_date, website, email, phone,
-      adress, nip, short_note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+      adress, nip, short_note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
 
   try {
     await suppliersSchema.validate(req.body);
@@ -72,6 +73,7 @@ router.post('/suppliers/', async (req, res) => {
         console.log('SQL problem ' + err);
         res.status(406).send(bodyErrror);
       } else {
+        registerEvent(15, qResults.rows[0].id, req.body.supplier_name); // add the newly created item/person to the history
         res.status(200).send(insertSuccess);
       }
     });
@@ -81,7 +83,7 @@ router.post('/suppliers/', async (req, res) => {
   }
 });
 
-router.put('/suppliers/', async (req, res) => {
+router.put('/suppliers/:id', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
   const QS = `UPDATE suppliers SET name = $1, join_date = $2, website = $3, email = $4, phone = $5,
@@ -89,11 +91,12 @@ router.put('/suppliers/', async (req, res) => {
 
   try {
     await suppliersSchema.validate(req.body);
-    pool.query(QS, Object.values(req.body), (err, qResults) => {
+    pool.query(QS, [...Object.values(req.body), req.params.id], (err, qResults) => {
       if (err) {
         console.log('SQL problem ' + err);
         res.status(406).send(bodyErrror);
       } else {
+        registerEvent(16, req.params.id, req.body.supplier_name); // add the newly created item/person to the history
         res.status(200).send(insertSuccess);
       }
     });

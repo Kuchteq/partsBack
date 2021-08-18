@@ -4,6 +4,8 @@ const router = express.Router();
 const pool = require('../db');
 const withPaginSort = require('../functions/pagination');
 const checkStock = require('../functions/stockChecker');
+const checkComputerExistance = require('../functions/computerChecker.js');
+const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());
 
@@ -62,19 +64,21 @@ router.get('/inventory/:id', async (req, res) => {
   });
 });
 
-router.post('/inventory/', async (req, res) => {
+router.post('/inventory', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
   const QS = `INSERT INTO parts (name, stock, price, purchase_date, short_note,
-      supplier_id, segment_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`;
+      supplier_id, segment_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;`;
 
   try {
     await partsAddSchema.validate(req.body);
     pool.query(QS, Object.values(req.body), (err, qResults) => {
       if (err) {
         console.log('SQL problem ' + err);
+
         res.status(406).send(bodyErrror);
       } else {
+        registerEvent(0, qResults.rows[0].id, req.body.part_name); // add the newly created item/person to the history
         res.status(200).send(insertSuccess);
       }
     });
@@ -84,7 +88,7 @@ router.post('/inventory/', async (req, res) => {
   }
 });
 
-router.put('/inventory/', async (req, res) => {
+router.put('/inventory', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
   const QS = `UPDATE parts SET name = $1, stock = $2, price = $3, purchase_date = $4, short_note = $5,
@@ -97,6 +101,7 @@ router.put('/inventory/', async (req, res) => {
         console.log('SQL problem ' + err);
         res.status(406).send(bodyErrror);
       } else {
+        registerEvent(1, qResults.rows[0].id, req.body.name); // add the newly created item/person to the history
         res.status(200).send(insertSuccess);
       }
     });
@@ -106,34 +111,20 @@ router.put('/inventory/', async (req, res) => {
   }
 });
 
-router.post('/inventory-sell/', async (req, res) => {
-  'In the options the individual ids of parts will be passed for the backend to delete;';
-  const chunks = req.body.chunks;
-  const newOrderQS = 'INSERT INTO orders (client_id, sell_date) VALUES ($1, $2) RETURNING id;';
-  const createChunkQS = 'INSERT INTO order_chunks (part_id, sell_price, quantity, belonging_order_id) VALUES ($1, $2, $3, $4);';
+router.delete('/inventory/:id', async (req, res) => {
+  'Here express will pull id individual data from the database and return it in this form';
+  const itemToDeleteId = req.params.id;
+  const QS = `DELETE FROM parts WHERE id = $1 RETURNING name`;
 
-  const subtractStockQS = 'UPDATE parts SET stock = stock - $1 WHERE id = $2';
-
-  checkStock(chunks)
-    .then(() =>
-      pool.query(newOrderQS, [req.body.client_id, req.body.sell_date], (err, q2Results) => {
-        if (!err) {
-          const newOrderId = q2Results.rows[0].id;
-          chunks.map(chunk => {
-            pool.query(createChunkQS, [chunk.part_id, chunk.sell_price, chunk.quantity, newOrderId]).catch(err => console.log(err));
-            //subtract approriate amount from stock
-            pool.query(subtractStockQS, [chunk.quantity, chunk.part_id]);
-          });
-          res.status(200).send('Order created');
-        } else {
-          console.log('SQL problem ' + err);
-          res.status(406).send(bodyErrror);
-        }
-      })
-    )
-    .catch(err => {
-      res.status(406).send(err);
-    });
+  pool.query(QS, [itemToDeleteId], async (err, qResults) => {
+    if (err || qResults.rowCount < 1) {
+      console.log('unsucessful delete ' + err);
+      res.status(400).send(bodyErrror);
+    } else {
+      registerEvent(2, itemToDeleteId, qResults.rows[0].name);
+      res.status(200).send('Successfuly deleted part');
+    }
+  });
 });
 
 module.exports = router;

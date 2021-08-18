@@ -22,20 +22,20 @@ const pool = require('../db');
     17 - Supplier deleted {supplier_name}
 `;
 
-const registerEvent = (action_id, target_value) => {
+const registerEvent = (action_id, target_id, target_value) => {
   return new Promise(async (resolve, reject) => {
-
-
-        pool.query(`INSERT INTO history ( action_id, ${category} ) VALUES ($1, $2)`, [action_id, targetValue], async (err, qResults) => {
-          if (err) {
-            reject(err);
-            console.log('SQL problem ' + err);
-          } else {
-            resolve('successfully recorded event');
-          }
-        });
-      })
-      .catch(err => resolve('Thing doesnt exist ' + err));
+    pool.query(
+      `INSERT INTO history ( action_id, target_id, details ) VALUES ($1, $2, $3)`,
+      [action_id, target_id, target_value],
+      async (err, qResults) => {
+        if (err) {
+          reject(err);
+          console.log('SQL problem ' + err);
+        } else {
+          resolve('successfully recorded event');
+        }
+      }
+    );
   });
 };
 

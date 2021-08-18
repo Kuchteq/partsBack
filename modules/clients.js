@@ -63,7 +63,7 @@ router.post('/clients/', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
   const QS = `INSERT INTO clients (name, join_date, website, email, phone,
-      adress, nip, short_note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+      adress, nip, short_note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
 
   try {
     await clientsSchema.validate(req.body);
@@ -72,6 +72,7 @@ router.post('/clients/', async (req, res) => {
         console.log('SQL problem ' + err);
         res.status(406).send(bodyErrror);
       } else {
+        registerEvent(12, qResults.rows[0].id, req.body.client_name); // add the newly created item/person to the history
         res.status(200).send(insertSuccess);
       }
     });
@@ -81,7 +82,7 @@ router.post('/clients/', async (req, res) => {
   }
 });
 
-router.put('/clients/', async (req, res) => {
+router.put('/clients/:id', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
   const QS = `UPDATE clients SET name = $1, join_date = $2, website = $3, email = $4, phone = $5,
@@ -89,11 +90,12 @@ router.put('/clients/', async (req, res) => {
 
   try {
     await clientsSchema.validate(req.body);
-    pool.query(QS, Object.values(req.body), (err, qResults) => {
+    pool.query(QS, [...Object.values(req.body), req.params.id], (err, qResults) => {
       if (err) {
         console.log('SQL problem ' + err);
         res.status(406).send(bodyErrror);
       } else {
+        registerEvent(13, req.params.id, req.body.client_name);
         res.status(200).send(insertSuccess);
       }
     });
