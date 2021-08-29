@@ -8,7 +8,7 @@ const withPaginSort = (string, page, sort_by, sort_dir = 'ASC') => {
     return '';
   }
   const intPage = parseInt(page, 10);
-  const limit = 10;
+  const limit = 20;
   const startIndex = (intPage - 1) * limit;
   if (sort_by) {
     return `${string} ORDER BY ${sort_by} ${sort_dir} OFFSET ${startIndex} LIMIT ${limit}`;

@@ -68,18 +68,28 @@ router.get('/computers', async (req, res) => {
 router.get('/computers/:id', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  const QS = `SELECT computer_pieces.id as piece_id, parts.id as part_id, parts.name as part_name, computer_pieces.quantity as quantity, parts.segment_id as segment_id, parts.price as price
+  const partsQS = `SELECT computer_pieces.id as piece_id, parts.id as part_id, parts.name as part_name, computer_pieces.quantity as quantity, parts.segment_id as segment_id, segments.name as segment_name, parts.price as price
   FROM computer_pieces JOIN parts on parts.id = computer_pieces.part_id 
   JOIN computers on computers.id = computer_pieces.belonging_computer_id
-  WHERE computers.id = $1`;
+  JOIN segments on segments.id = parts.segment_id
+  WHERE computers.id = $1 ORDER BY segment_id`;
 
-  pool.query(QS, [req.params.id], async (err, qResults) => {
-    if (err) {
-      console.log(err);
-      res.status(400).send(bodyErrror);
-    } else {
-      res.status(200).send(qResults.rows);
-    }
+  const compInfoQS = `SELECT computers.id as computer_id, computers.name as computer_name, SUM(parts.price) computer_value, assembled_at FROM computers
+  LEFT JOIN computer_pieces ON computer_pieces.belonging_computer_id = computers.id LEFT JOIN parts on parts.id = computer_pieces.part_id
+  WHERE computers.id = $1 GROUP BY computers.id;`;
+  pool.query(compInfoQS, [req.params.id], async (err, q1Results) => {
+    if (!err)
+      pool.query(partsQS, [req.params.id], async (err, q2Results) => {
+        if (err) {
+          console.log(err);
+          res.status(400).send(bodyErrror);
+        } else {
+          let response = q1Results.rows[0];
+          response.parts = q2Results.rows;
+          res.status(200).send(response);
+        }
+      });
+    else res.status(400).send(bodyErrror);
   });
 });
 

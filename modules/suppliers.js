@@ -12,13 +12,13 @@ const insertSuccess = 'Supplier added';
 
 const suppliersSchema = yup.object().shape({
   supplier_name: yup.string().required(),
+  phone: yup.string().nullable(),
+  email: yup.string().email().nullable(),
+  website: yup.string().nullable(),
+  adress: yup.string().nullable(),
+  nip: yup.string().length(10).nullable(),
+  short_note: yup.string().nullable(),
   join_date: yup.date().required(),
-  website: yup.string().url(),
-  email: yup.string().email(),
-  phone: yup.string(),
-  adress: yup.string(),
-  nip: yup.string().length(10),
-  short_note: yup.string(),
 });
 
 router.get('/suppliers', async (req, res) => {
@@ -26,15 +26,16 @@ router.get('/suppliers', async (req, res) => {
 
   //short for query string
 
-  const insideQS = `SELECT DISTINCT ON (suppliers.id) suppliers.id as supplier_id, suppliers.name as supplier_name, join_date, website, email, phone, adress, nip, suppliers.short_note as supplier_short_note, parts.name as last_purchased_part FROM suppliers LEFT JOIN parts ON suppliers.id = parts.supplier_id ORDER BY suppliers.id, parts.purchase_date DESC`;
+  const insideQS = `SELECT DISTINCT ON (suppliers.id) suppliers.id as supplier_id, suppliers.name as supplier_name, TO_CHAR(join_date :: DATE, 'dd/mm/yyyy') as join_date, website, email, phone, adress, nip, suppliers.short_note as supplier_short_note, parts.name as last_purchased_part, TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') as last_sold_date FROM suppliers LEFT JOIN parts ON suppliers.id = parts.supplier_id
+   ORDER BY suppliers.id, parts.purchase_date DESC`;
 
   const wholeQS = withPaginSort(
-    `WITH distinctSuppliers AS (${insideQS}) SELECT supplier_id, supplier_name, join_date, website, email, phone, adress, nip, supplier_short_note, last_purchased_part FROM distinctSuppliers`,
+    `WITH distinctSuppliers AS (${insideQS}) SELECT supplier_id, supplier_name, join_date, website, phone, email, adress, nip, supplier_short_note, last_purchased_part, TO_CHAR(last_sold_date :: DATE, 'dd/mm/yyyy') as last_sold_date FROM distinctSuppliers`,
     req.query.page,
     req.query.sort_by,
     req.query.sort_dir
   );
-  console.log(wholeQS);
+
   pool.query(wholeQS, async (err, qResults) => {
     if (err) {
       console.log(err);
@@ -63,8 +64,8 @@ router.get('/suppliers/:id', async (req, res) => {
 router.post('/suppliers', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
-  const QS = `INSERT INTO suppliers (name, join_date, website, email, phone,
-      adress, nip, short_note) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
+  const QS = `INSERT INTO suppliers (name, phone, email, website,
+    adress, nip, short_note, join_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
 
   try {
     await suppliersSchema.validate(req.body);

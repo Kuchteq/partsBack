@@ -13,13 +13,13 @@ const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'Part added';
 
 const partsAddSchema = yup.object().shape({
+  segment_id: yup.number().integer().required(),
   part_name: yup.string().required(),
   stock: yup.number().integer().required(),
-  price: yup.number().integer().required(),
-  purchase_date: yup.date().required(),
-  short_note: yup.string(),
+  price: yup.number().required(),
   supplier_id: yup.number().required(),
-  segment_id: yup.number().integer().required(),
+  short_note: yup.string().nullable(),
+  purchase_date: yup.date().required(),
 });
 
 router.get('/inventory', async (req, res) => {
@@ -27,8 +27,8 @@ router.get('/inventory', async (req, res) => {
 
   //short for query string
   const QS = withPaginSort(
-    `SELECT parts.id as part_id, parts.name as part_name, parts.stock, parts.price, parts.purchase_date, parts.short_note,
-  suppliers.name as suppliers_name, segments.name as segments_name FROM parts 
+    `SELECT parts.id as part_id, segments.name as segments_name, parts.name as part_name, parts.stock, trim_scale(parts.price), parts.short_note,
+  suppliers.name as suppliers_name, TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') AS purchase_date FROM parts 
   JOIN suppliers ON (parts.supplier_id = suppliers.id) 
   JOIN segments ON (parts.segment_id = segments.id)`,
     req.query.page,
@@ -49,8 +49,7 @@ router.get('/inventory', async (req, res) => {
 router.get('/inventory/:id', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  const QS = `SELECT parts.id as part_id, parts.name as part_name, parts.stock, parts.price, parts.purchase_date, parts.short_note,
-  suppliers.name as suppliers_name, segments.name as segments_name FROM parts 
+  const QS = `SELECT segments.id as segment_id, parts.name as part_name, parts.stock as stock, parts.price, suppliers.id as supplier_id,  parts.short_note, purchase_date, suppliers.name as supplier_name, segments.name as segment_name, parts.id as part_id  FROM parts 
   JOIN suppliers ON (parts.supplier_id = suppliers.id) 
   JOIN segments ON (parts.segment_id = segments.id) WHERE parts.id = $1`;
 
@@ -67,8 +66,7 @@ router.get('/inventory/:id', async (req, res) => {
 router.post('/inventory', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
-  const QS = `INSERT INTO parts (name, stock, price, purchase_date, short_note,
-      supplier_id, segment_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;`;
+  const QS = `INSERT INTO parts (segment_id, name, stock, price, supplier_id, short_note, purchase_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;`;
 
   try {
     await partsAddSchema.validate(req.body);
@@ -88,15 +86,15 @@ router.post('/inventory', async (req, res) => {
   }
 });
 
-router.put('/inventory', async (req, res) => {
+router.put('/inventory/:id', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
-  const QS = `UPDATE parts SET name = $1, stock = $2, price = $3, purchase_date = $4, short_note = $5,
-      supplier_id = $6, segment_id = $7 WHERE id = $8`;
+  const QS = `UPDATE parts SET segment_id = $1, name = $2, stock = $3, price = $4, supplier_id = $5,
+  short_note = $6, purchase_date = $7 WHERE id = $8 RETURNING id`;
 
   try {
     await partsAddSchema.validate(req.body);
-    pool.query(QS, Object.values(req.body), (err, qResults) => {
+    pool.query(QS, [...Object.values(req.body), req.params.id], (err, qResults) => {
       if (err) {
         console.log('SQL problem ' + err);
         res.status(406).send(bodyErrror);

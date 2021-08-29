@@ -5,6 +5,8 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const pool = require('./db');
+const cookieParser = require('cookie-parser');
+const dayjs = require('dayjs');
 
 const inventory = require('./modules/inventory');
 const suppliers = require('./modules/suppliers');
@@ -13,17 +15,18 @@ const computers = require('./modules/computers');
 const problems = require('./modules/problems');
 const history = require('./modules/history');
 const orders = require('./modules/orders');
+const misc = require('./modules/misc');
 
 const saltRounds = 10;
 const myPlaintextPassword = 'DWAtesty123';
 const someOtherPlaintextPassword = 'not_bacon';
 
+const app = express();
+
 const verifyUser = (req, res, next) => {
-  let token = req.headers.authorization;
+  token = req.cookies.Authorization;
 
   if (!token) return res.sendStatus(403);
-
-  token = token.split(' ')[1];
 
   jwt.verify(token, 'secretkey', (err, data) => {
     if (err) {
@@ -50,31 +53,42 @@ bcrypt.genSalt(saltRounds, async (err, salt) => {
   });
 });
 
-const app = express();
+app.use(
+  cors({
+    origin: ['http://localhost:3000', 'http://localhost:5000'],
+    credentials: true,
+  })
+);
+
+app.use(cookieParser());
+app.use(express.json());
 app.use(protectRoutes);
-app.use('/', [computers, inventory, suppliers, clients, problems, history, orders]);
+app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, misc]);
 
 const invalidCredsMessage = 'Invalid login credentials';
 
 const port = 5000;
 
-app.use(express.json());
-app.use(cors());
-
 app.post('/userlogin', async (req, response) => {
-  const { email, password, username } = req.body;
+  const { _email, username, password } = req.body;
 
   const userPass = await pool.query('SELECT * FROM users WHERE username = $1', [username], async (err, queryResults) => {
     try {
-      if (queryResults.rowCount !== 1) return response.status(400).send(invalidCredsMessage);
+      if (queryResults.rowCount !== 1) return response.status(401).send(invalidCredsMessage);
 
       bcrypt.compare(password, queryResults.rows[0].password, async (err, result) => {
         if (result == true) {
           jwt.sign(queryResults.rows[0], 'secretkey', { expiresIn: '9999999s' }, (err, token) => {
-            response.json({ token });
+            response
+              .status(202)
+              .cookie('Authorization', token, {
+                httpOnly: true,
+                expires: dayjs().add(30, 'days').toDate(),
+              })
+              .send('successfully logged in');
           });
         } else {
-          return response.status(400).send(invalidCredsMessage);
+          return response.status(401).send(invalidCredsMessage);
         }
       });
     } catch (err) {

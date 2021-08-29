@@ -69,7 +69,7 @@ router.post('/orders', async (req, res) => {
   const parts = req.body.parts;
   const computers = req.body.computers;
 
-  const newOrderQS = 'INSERT INTO orders (client_id, sell_date) VALUES ($1, $2) RETURNING id;';
+  const newOrderQS = 'INSERT INTO orders (name, client_id, sell_date) VALUES ($1, $2, $3) RETURNING id;';
 
   const createPartChunkQS = 'INSERT INTO order_chunks (part_id, sell_price, quantity, belonging_order_id) VALUES ($1, $2, $3, $4);';
   const createComputerChunkQS = 'INSERT INTO order_chunks (computer_id, sell_price, quantity, belonging_order_id) VALUES ($1, $2, $3, $4);';
@@ -84,7 +84,7 @@ router.post('/orders', async (req, res) => {
     .then(() =>
       checkComputerExistance(computersToCheck)
         .then(() =>
-          pool.query(newOrderQS, [req.body.client_id, req.body.sell_date], (err, q2Results) => {
+          pool.query(newOrderQS, [req.body.name, req.body.client_id, req.body.sell_date], (err, q2Results) => {
             if (!err) {
               const newOrderId = q2Results.rows[0].id;
               parts.map(chunk => {

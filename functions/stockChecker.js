@@ -13,8 +13,8 @@ const checkStock = items => {
     };
 
     items.forEach(item => {
-      itemsToCheck.ids.push(item.part_id);
-      itemsToCheck.quantities.push(item.quantity);
+      itemsToCheck.ids.push(parseInt(item.part_id));
+      itemsToCheck.quantities.push(parseInt(item.quantity));
     });
 
     pool.query(
