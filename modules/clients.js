@@ -53,14 +53,14 @@ router.get('/clients', async (req, res) => {
 router.get('/clients/:id', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  const QS = `SELECT id, name, join_date, website, email, phone, adress, nip, short_note FROM clients WHERE id = $1`;
+  const QS = `SELECT id, name as client_name, phone, email, adress, nip, short_note, join_date FROM clients WHERE id = $1`;
 
   pool.query(QS, [req.params.id], async (err, qResults) => {
     if (err) {
       console.log(err);
       res.status(400).send(bodyErrror);
     } else {
-      res.status(200).send(qResults.rows);
+      res.status(200).send(qResults.rows[0]);
     }
   });
 });
@@ -91,8 +91,8 @@ router.post('/clients/', async (req, res) => {
 router.put('/clients/:id', async (req, res) => {
   'Here all the arguments like segment, model name, amount, price will be passed';
 
-  const QS = `UPDATE clients SET name = $1, join_date = $2, website = $3, email = $4, phone = $5,
-        adress = $6, nip = $7, short_note = $8 WHERE id = $9`;
+  const QS = `UPDATE clients SET name = $1, phone = $2, email = $3, adress = $4,
+  nip = $5, short_note = $6, join_date = $7 WHERE id = $8`;
 
   try {
     await clientsSchema.validate(req.body);
@@ -109,6 +109,22 @@ router.put('/clients/:id', async (req, res) => {
     console.log('Data validation problem ' + err);
     res.status(406).send(bodyErrror);
   }
+});
+
+router.delete('/clients/:id', async (req, res) => {
+  'Here express will pull id individual data from the database and return it in this form';
+  const itemToDeleteId = req.params.id;
+  const QS = `DELETE FROM clients WHERE id = $1 RETURNING name`;
+
+  pool.query(QS, [itemToDeleteId], async (err, qResults) => {
+    if (err || qResults.rowCount < 1) {
+      console.log('unsucessful delete ' + err);
+      res.status(400).send(bodyErrror);
+    } else {
+      registerEvent(2, itemToDeleteId, qResults.rows[0].name);
+      res.status(200).send('Successfuly deleted client');
+    }
+  });
 });
 
 module.exports = router;

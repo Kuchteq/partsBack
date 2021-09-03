@@ -68,17 +68,17 @@ router.get('/computers', async (req, res) => {
 router.get('/computers/:id', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  const partsQS = `SELECT computer_pieces.id as piece_id, parts.id as part_id, parts.name as part_name, computer_pieces.quantity as quantity, parts.segment_id as segment_id, segments.name as segment_name, parts.price as price
+  const partsQS = `SELECT computer_pieces.id as piece_id, parts.id as part_id, parts.name as part_name, computer_pieces.quantity as quantity, parts.segment_id as segment_id, parts.price as price
   FROM computer_pieces JOIN parts on parts.id = computer_pieces.part_id 
   JOIN computers on computers.id = computer_pieces.belonging_computer_id
   JOIN segments on segments.id = parts.segment_id
   WHERE computers.id = $1 ORDER BY segment_id`;
 
-  const compInfoQS = `SELECT computers.id as computer_id, computers.name as computer_name, SUM(parts.price) computer_value, assembled_at FROM computers
+  const compInfoQS = `SELECT computers.id as computer_id, computers.name as computer_name, SUM(parts.price) computer_value, TO_CHAR(computers.assembled_at :: DATE, 'dd/mm/yyyy hh:mm') AS assembled_at FROM computers
   LEFT JOIN computer_pieces ON computer_pieces.belonging_computer_id = computers.id LEFT JOIN parts on parts.id = computer_pieces.part_id
   WHERE computers.id = $1 GROUP BY computers.id;`;
   pool.query(compInfoQS, [req.params.id], async (err, q1Results) => {
-    if (!err)
+    if (!err && q1Results.rows.length > 0)
       pool.query(partsQS, [req.params.id], async (err, q2Results) => {
         if (err) {
           console.log(err);
@@ -89,7 +89,7 @@ router.get('/computers/:id', async (req, res) => {
           res.status(200).send(response);
         }
       });
-    else res.status(400).send(bodyErrror);
+    else res.status(400).send(bodyErrror + " or the computer doesn't exist");
   });
 });
 
@@ -98,13 +98,13 @@ router.post('/computers', async (req, res) => {
 
   const pieces = req.body.pieces;
 
-  const newComputerQS = 'INSERT INTO computers (name, assembled_at) VALUES ($1, $2) RETURNING id;';
+  const newComputerQS = 'INSERT INTO computers (name, assembled_at, short_note) VALUES ($1, $2, $3) RETURNING id;';
   const createPieceQS = 'INSERT INTO computer_pieces (part_id, quantity, belonging_computer_id) VALUES ($1, $2, $3);';
   const subtractStockQS = 'UPDATE parts SET stock = stock - $1 WHERE id = $2';
 
   checkStock(pieces)
     .then(() => {
-      pool.query(newComputerQS, [req.body.computer_name, req.body.assembled_at], (err, q2Results) => {
+      pool.query(newComputerQS, [req.body.computer_name, req.body.assembled_at, req.body.short_note], (err, q2Results) => {
         if (!err) {
           const newComputerId = q2Results.rows[0].id;
 
@@ -131,45 +131,50 @@ router.put('/computers/:id', async (req, res) => {
   ('Here express will pull data from the database and return it in this form');
 
   const pieces = req.body.pieces;
-  const pieces_update = req.body.pieces_update;
-
+  const computerId = req.params.id;
   const modifyComputerQS = 'UPDATE computers SET name = $1, assembled_at = $2 WHERE id = $3;';
-  //const updatePieceQS = 'UPDATE computer_pieces SET part_id = $1, quantity = $2, belonging_computer_id = $3 WHERE id = $4';
+  const updatePieceQS = 'UPDATE computer_pieces SET part_id = $1, quantity = $2 WHERE id = $3';
   const deletePieceQS = 'DELETE FROM computer_pieces WHERE id = $1';
   const subtractStockQS = 'UPDATE parts SET stock = stock - $1 WHERE id = $2';
+  const addStockQS = 'UPDATE parts SET stock = stock + $1 WHERE id = $2';
   const createPieceQS = 'INSERT INTO computer_pieces (part_id, quantity, belonging_computer_id) VALUES ($1, $2, $3);';
-
+  const getPartsInfoQS = 'SELECT id as piece_id, part_id, quantity FROM computer_pieces WHERE belonging_computer_id = $1 ORDER BY piece_id;';
+  console.log('otrzymąłem');
   checkStock(pieces)
     .then(() => {
-      pool.query(modifyComputerQS, [req.body.computer_name, req.body.assembled_at, req.params.id], (err, q2Results) => {
-        if (!err) {
-          new Promise((resolve, reject) => {
-            pieces_update &&
-              pieces_update.map(async piece => {
-                if (piece.to_delete) {
-                  console.log(piece.quantity_difference);
-                  await pool.query(subtractStockQS, [piece.quantity_difference, piece.part_id]).catch(err => console.log(err));
-                  await pool.query(deletePieceQS, [piece.piece_id]).catch(err => console.log(err));
-                }
-              });
+      pool.query(modifyComputerQS, [req.body.computer_name, req.body.assembled_at, computerId], (err, q2Results) => {
+        pool.query(getPartsInfoQS, [computerId]).then(q1Results => {
+          let newly = pieces.filter(p => !p.piece_id);
+          let older = pieces.filter(p => p.piece_id); //older as if the piece id is still there, though the part_id or quantity may be different
 
-            resolve();
-          }).then(
-            () =>
-              pieces &&
-              pieces.map(piece => {
-                pool.query(createPieceQS, [piece.part_id, piece.quantity, req.params.id]).catch(err => console.log(err));
+          q1Results.rows.filter(r => r.piece_id);
+          try {
+            q1Results.rows.forEach(row => {
+              let sewc = older.find(o => o.piece_id == row.piece_id && (o.part_id != row.part_id || o.quantity != row.quantity)); //still exists but with changes
 
-                //subtract approriate amount from stock
-                pool.query(subtractStockQS, [piece.quantity, piece.part_id]);
-              })
-          );
-          registerEvent(6, req.params.id, req.body.computer_name);
-          res.status(200).send('Computer updated');
-        } else {
-          console.log('SQL problem ' + err);
-          res.status(406).send(bodyErrror);
-        }
+              //checking whether the piece doesn't exist inside new computer setup, then deleting it from the current one
+              if (!older.find(o => o.piece_id == row.piece_id)) {
+                pool.query(addStockQS, [row.quantity, row.part_id]).catch(err => console.log(err));
+                pool.query(deletePieceQS, [row.piece_id]).catch(err => console.log(err));
+              }
+              //checking whether the piece id still exists and whether there are some changes
+              else if (sewc) {
+                pool.query(addStockQS, [row.quantity, row.part_id]).catch(err => console.log(err));
+                pool.query(subtractStockQS, [sewc.quantity, sewc.part_id]).catch(err => console.log(err));
+                pool.query(updatePieceQS, [sewc.part_id, sewc.quantity, sewc.piece_id]).catch(err => console.log(err));
+              }
+            });
+            newly.forEach(newRow => {
+              pool.query(createPieceQS, [newRow.part_id, newRow.quantity, computerId]).catch(err => console.log(err));
+              pool.query(subtractStockQS, [newRow.quantity, newRow.part_id]).catch(err => console.log(err));
+            });
+            res.status(200).send('wykonane');
+            return;
+          } catch (err) {
+            res.status(400).send('Error has occoured');
+            console.log(err);
+          }
+        });
       });
     })
     .catch(err => {

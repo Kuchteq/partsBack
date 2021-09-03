@@ -29,8 +29,8 @@ router.get('/inventory', async (req, res) => {
   const QS = withPaginSort(
     `SELECT parts.id as part_id, segments.name as segments_name, parts.name as part_name, parts.stock, trim_scale(parts.price), parts.short_note,
   suppliers.name as suppliers_name, TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') AS purchase_date FROM parts 
-  JOIN suppliers ON (parts.supplier_id = suppliers.id) 
-  JOIN segments ON (parts.segment_id = segments.id)`,
+  LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
+  LEFT JOIN segments ON (parts.segment_id = segments.id)`,
     req.query.page,
     req.query.sort_by,
     req.query.sort_dir
@@ -50,15 +50,15 @@ router.get('/inventory/:id', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
   const QS = `SELECT segments.id as segment_id, parts.name as part_name, parts.stock as stock, parts.price, suppliers.id as supplier_id,  parts.short_note, purchase_date, suppliers.name as supplier_name, segments.name as segment_name, parts.id as part_id  FROM parts 
-  JOIN suppliers ON (parts.supplier_id = suppliers.id) 
-  JOIN segments ON (parts.segment_id = segments.id) WHERE parts.id = $1`;
+  LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
+  LEFT JOIN segments ON (parts.segment_id = segments.id) WHERE parts.id = $1`;
 
   pool.query(QS, [req.params.id], async (err, qResults) => {
     if (err) {
       console.log(err);
       res.status(400).send(bodyErrror);
     } else {
-      res.status(200).send(qResults.rows);
+      res.status(200).send(qResults.rows[0]);
     }
   });
 });
@@ -121,6 +121,37 @@ router.delete('/inventory/:id', async (req, res) => {
     } else {
       registerEvent(2, itemToDeleteId, qResults.rows[0].name);
       res.status(200).send('Successfuly deleted part');
+    }
+  });
+});
+
+//basic part info
+router.get('/inventory-basic/:arr', async (req, res) => {
+  'Here express will pull id individual data from the database and return it in this form';
+
+  const QS = `SELECT parts.id as part_id, segment_id, parts.name as part_name, parts.stock, parts.price FROM parts WHERE id IN(${req.params.arr})`;
+
+  pool.query(QS, [], async (err, qResults) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      res.status(200).send(qResults.rows);
+    }
+  });
+});
+
+router.get('/inventory-all-bycat/:cat', async (req, res) => {
+  'Here express will pull id individual data from the database and return it in this form';
+
+  const QS = `SELECT parts.id as value, parts.name as label, parts.stock, parts.price FROM parts WHERE segment_id = $1 ORDER BY id DESC`;
+
+  pool.query(QS, [req.params.cat], async (err, qResults) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      res.status(200).send(qResults.rows);
     }
   });
 });
