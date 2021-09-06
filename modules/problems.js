@@ -16,8 +16,8 @@ const updateSuccess = 'Problem updated';
 const problemsAddSchema = yup.object().shape({
   computer_id: yup.number().required(),
   problem_note: yup.string().required(),
-  hand_in_date: yup.date(),
-  deadline_date: yup.date(),
+  hand_in_date: yup.date().required(),
+  deadline_date: yup.date().nullable(),
 });
 
 router.get('/problems', async (req, res) => {
@@ -25,10 +25,14 @@ router.get('/problems', async (req, res) => {
 
   //short for query string
   const QS = withPaginSort(
-    `SELECT computers.name as computer_name, problems.id, computer_id, problem_note, hand_in_date, deadline_date, finished
-      FROM problems JOIN computers ON (computer_id = computers.id) `,
+    `SELECT  problems.id as problem_id, computers.name as computer_name, problems.computer_id, problem_note, TO_CHAR(hand_in_date :: DATE, 'dd/mm/yyyy') as hand_in_date, TO_CHAR(deadline_date :: DATE, 'dd/mm/yyyy hh:mm') as deadline_date , 
+    clients.name as client_name,
+    finished FROM problems JOIN computers ON (computer_id = computers.id)
+    LEFT JOIN order_chunks ON(problems.computer_id = order_chunks.computer_id) 
+    LEFT JOIN orders ON(order_chunks.belonging_order_id = orders.id) 
+    LEFT JOIN clients ON (orders.client_id = clients.id)`,
     req.query.page,
-    req.query.sort_by,
+    ` finished, ${req.query.sort_by} `,
     req.query.sort_dir
   );
 
@@ -38,6 +42,26 @@ router.get('/problems', async (req, res) => {
       res.status(400).send(bodyErrror);
     } else {
       res.status(200).send(qResults.rows);
+    }
+  });
+});
+
+router.get('/problems/:id', async (req, res) => {
+  'Here express will pull data from the database and return it in this form';
+
+  //short for query string
+  const QS = `SELECT problems.computer_id as computer_id, problem_note, computers.name as computer_name, 
+  hand_in_date, 
+  deadline_date, problems.id as problem_id
+  FROM problems  JOIN computers ON (computer_id = computers.id) WHERE problems.id = $1;`;
+
+  pool.query(QS, [req.params.id], async (err, qResults) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      console.log(qResults.rows[0]);
+      res.status(200).send(qResults.rows[0]);
     }
   });
 });

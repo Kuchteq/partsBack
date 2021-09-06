@@ -16,7 +16,7 @@ router.get('/history', async (req, res) => {
 
   //short for query string
   const QS = withPaginSort(
-    `SELECT history.id as history_id, action_types.id as type_id, action_types.type_name as prefix, history.target_id as target_id, history.details as details, at_time FROM history 
+    `SELECT history.id as history_id, action_types.type_name as prefix, history.details as details, TO_CHAR(at_time :: DATE, 'dd/mm/yyyy hh:mm') as at_time FROM history 
     LEFT JOIN action_types on (history.action_id = action_types.id) `,
     req.query.page,
     req.query.sort_by,

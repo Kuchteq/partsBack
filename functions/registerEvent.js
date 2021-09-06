@@ -25,7 +25,7 @@ const pool = require('../db');
 const registerEvent = (action_id, target_id, target_value) => {
   return new Promise(async (resolve, reject) => {
     pool.query(
-      `INSERT INTO history ( action_id, target_id, details ) VALUES ($1, $2, $3)`,
+      `INSERT INTO history (action_id, target_id, details, at_time) VALUES ($1, $2, $3, NOW())`,
       [action_id, target_id, target_value],
       async (err, qResults) => {
         if (err) {
