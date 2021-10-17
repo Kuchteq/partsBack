@@ -16,6 +16,7 @@ const problems = require('./modules/problems');
 const history = require('./modules/history');
 const orders = require('./modules/orders');
 const misc = require('./modules/misc');
+const multiSearch = require('./modules/multiSearch');
 
 const saltRounds = 10;
 const myPlaintextPassword = 'DWAtesty123';
@@ -62,8 +63,8 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
-app.use(protectRoutes);
-app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, misc]);
+//app.use(protectRoutes);
+app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, misc, multiSearch]);
 
 const invalidCredsMessage = 'Invalid login credentials';
 

@@ -49,15 +49,18 @@ router.get('/inventory', async (req, res) => {
 router.get('/inventory/:id', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  const QS = `SELECT segments.id as segment_id, parts.name as part_name, parts.stock as stock, parts.price, suppliers.id as supplier_id,  parts.short_note, purchase_date, suppliers.name as supplier_name, segments.name as segment_name, parts.id as part_id  FROM parts 
-  LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
-  LEFT JOIN segments ON (parts.segment_id = segments.id) WHERE parts.id = $1`;
+  const QS = `SELECT segments.id as segment_id, parts.name as part_name, parts.stock as stock, parts.price, 
+  parts.short_note, purchase_date, jsonb_build_object('value', suppliers.id, 'label', suppliers.name) as supplier_obj,
+  jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj, parts.id as part_id FROM parts 
+    LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
+    LEFT JOIN segments ON (parts.segment_id = segments.id) WHERE parts.id = $1;`;
 
   pool.query(QS, [req.params.id], async (err, qResults) => {
     if (err) {
       console.log(err);
       res.status(400).send(bodyErrror);
     } else {
+      console.log(qResults.rows[0]);
       res.status(200).send(qResults.rows[0]);
     }
   });

@@ -50,9 +50,9 @@ router.get('/problems/:id', async (req, res) => {
   'Here express will pull data from the database and return it in this form';
 
   //short for query string
-  const QS = `SELECT problems.computer_id as computer_id, problem_note, computers.name as computer_name, 
-  hand_in_date, 
-  deadline_date, problems.id as problem_id
+  const QS = `SELECT 
+  jsonb_build_object('value', computer_id, 'label', computers.name) as computer_obj,
+  problem_note, hand_in_date, deadline_date, problems.id as problem_id
   FROM problems  JOIN computers ON (computer_id = computers.id) WHERE problems.id = $1;`;
 
   pool.query(QS, [req.params.id], async (err, qResults) => {
