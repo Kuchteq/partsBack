@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withPaginSort = require('../functions/pagination');
+const withParams = require('../functions/pagination');
 const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());
@@ -33,7 +33,7 @@ router.get('/clients', async (req, res) => {
   LEFT JOIN parts ON parts.id = order_chunks.part_id  
   ORDER BY clients.id, orders.sell_date DESC`;
 
-  const wholeQS = withPaginSort(
+  const wholeQS = withParams(
     `WITH distinctClients AS (${insideQS}) SELECT client_id, client_name, TO_CHAR(join_date :: DATE, 'dd/mm/yyyy') as join_date, phone, email, adress, nip, client_short_note, last_purchased_part, TO_CHAR(last_sold_date :: DATE, 'dd/mm/yyyy') as last_sold_date FROM distinctClients`,
     req.query.page,
     req.query.sort_by,

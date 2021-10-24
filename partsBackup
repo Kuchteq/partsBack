@@ -1,0 +1,1541 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 13.3
+-- Dumped by pg_dump version 13.3
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: temp_comp_table; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.temp_comp_table AS (
+	computer_id integer,
+	computer_name text,
+	processor_name text,
+	motherboard_name text,
+	graphics_card_name text,
+	computer_value integer,
+	short_note text,
+	assembled_at timestamp without time zone
+);
+
+
+ALTER TYPE public.temp_comp_table OWNER TO postgres;
+
+--
+-- Name: get_computers(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.get_computers() RETURNS SETOF public.temp_comp_table
+    LANGUAGE plpgsql
+    AS $$
+declare
+	temprow RECORD;
+	processor_name text;
+	graphics_card_name text;
+	motherboard_name text;
+	computer_price int;
+BEGIN
+
+
+--     RETURN QUERY SELECT parts.name as part_name
+-- 	FROM computer_pieces WHERE computer_pieces.id = 1 JOIN parts on parts.id = computer_pieces.part_id;
+	
+	FOR temprow in SELECT * FROM computers WHERE NOT EXISTS (SELECT computer_id FROM order_chunks WHERE computers.id = computer_id)
+	LOOP
+		WITH parts_preview AS (SELECT parts.name as part_name, parts.segment_id as segment_id
+		FROM computer_pieces JOIN parts on parts.id = computer_pieces.part_id JOIN computers on computers.id = computer_pieces.belonging_computer_id
+		 WHERE computer_pieces.belonging_computer_id = temprow.id) SELECT INTO processor_name, motherboard_name, graphics_card_name (
+			SELECT  DISTINCT ON (temprow.id) part_name  FROM parts_preview WHERE segment_id = 1
+		),
+		(
+			SELECT  DISTINCT ON (temprow.id) part_name  FROM parts_preview WHERE segment_id = 2
+		),
+		(
+			SELECT  DISTINCT ON (temprow.id) part_name  FROM parts_preview WHERE segment_id = 3
+		);
+		
+		SELECT SUM(parts.price) computer_price into computer_price FROM computer_pieces JOIN parts on parts.id = computer_pieces.part_id WHERE computer_pieces.belonging_computer_id = temprow.id;
+		
+		INSERT INTO temp_computer_table VALUES (temprow.id, temprow.name, processor_name, graphics_card_name, motherboard_name, computer_price, temprow.short_note, temprow.assembled_at);
+	END LOOP;
+	
+
+	
+	RETURN QUERY SELECT * FROM temp_computer_table;
+	
+	DELETE FROM temp_computer_table;
+RETURN;
+-- 	FOREACH i IN ARRAY ids
+-- 	LOOP
+-- 		SELECT stock INTO locstock FROM parts WHERE id = i;
+		
+-- 		IF locstock - quantity[i] < 0 OR locstock IS NULL THEN
+-- 			RETURN false;
+-- 		END IF;
+-- 	END LOOP;
+-- 	RAISE NOTICE '%', locstock;
+   
+END;
+$$;
+
+
+ALTER FUNCTION public.get_computers() OWNER TO postgres;
+
+--
+-- Name: get_computers(text, text, integer, integer); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.get_computers(_sort_by text, _sort_dir text, _start_index integer, _items_limit integer) RETURNS SETOF public.temp_comp_table
+    LANGUAGE plpgsql
+    AS $$
+declare
+	temprow RECORD;
+	firstRows RECORD;
+	processor_name text;
+	graphics_card_name text;
+	motherboard_name text;
+	computer_price int;
+BEGIN
+
+
+--     RETURN QUERY SELECT parts.name as part_name
+-- 	FROM computer_pieces WHERE computer_pieces.id = 1 JOIN parts on parts.id = computer_pieces.part_id;
+
+	
+	RETURN QUERY EXECUTE 'SELECT * FROM computers ORDER BY ' || quote_ident( _sort_by )  || ' OFFSET ' 
+	|| _start_index || ' LIMIT ' || _items_limit || 
+	' WHERE id IN (SELECT computer_id FROM order_chunks) ISNULL';
+	
+	FOR temprow in SELECT * FROM firstRows 
+	LOOP
+		WITH parts_preview AS (SELECT parts.name as part_name, parts.segment_id as segment_id
+		FROM computer_pieces JOIN parts on parts.id = computer_pieces.part_id JOIN computers 
+		on computers.id = computer_pieces.belonging_computer_id
+		 WHERE computer_pieces.belonging_computer_id = temprow.id) 
+		 
+		 SELECT INTO processor_name, motherboard_name, graphics_card_name (
+			SELECT  DISTINCT ON (temprow.id) part_name  FROM parts_preview WHERE segment_id = 1
+		),
+		(
+			SELECT  DISTINCT ON (temprow.id) part_name  FROM parts_preview WHERE segment_id = 2
+		),
+		(
+			SELECT  DISTINCT ON (temprow.id) part_name  FROM parts_preview WHERE segment_id = 3
+		);
+		
+		SELECT SUM(parts.price) computer_price into computer_price FROM computer_pieces JOIN parts on parts.id = computer_pieces.part_id WHERE computer_pieces.belonging_computer_id = 1;
+		
+		INSERT INTO temp_computer_table VALUES (temprow.id, temprow.name, temprow.assembled_at, processor_name, graphics_card_name, motherboard_name, computer_price);
+	END LOOP;
+	
+
+	
+	RETURN QUERY SELECT * FROM temp_computer_table;
+	
+	DELETE FROM temp_computer_table;
+RETURN;
+-- 	FOREACH i IN ARRAY ids
+-- 	LOOP
+-- 		SELECT stock INTO locstock FROM parts WHERE id = i;
+		
+-- 		IF locstock - quantity[i] < 0 OR locstock IS NULL THEN
+-- 			RETURN false;
+-- 		END IF;
+-- 	END LOOP;
+-- 	RAISE NOTICE '%', locstock;
+   
+END;
+
+$$;
+
+
+ALTER FUNCTION public.get_computers(_sort_by text, _sort_dir text, _start_index integer, _items_limit integer) OWNER TO postgres;
+
+--
+-- Name: stock_checker(integer[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.stock_checker(a integer[]) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $_$
+declare
+	available bool;
+	i integer;
+BEGIN
+	FOREACH i IN ARRAY $1
+	LOOP
+		RAISE NOTICE '%',i;
+	END LOOP;
+	
+	available = 42;
+   RETURN available;
+END;
+$_$;
+
+
+ALTER FUNCTION public.stock_checker(a integer[]) OWNER TO postgres;
+
+--
+-- Name: stock_checker(integer[], integer[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.stock_checker(ids integer[], quantity integer[]) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$
+declare
+	available bool;
+	locstock integer;
+	i integer;
+BEGIN
+	FOREACH i IN ARRAY ids
+	LOOP
+		SELECT stock INTO locstock FROM parts WHERE id = i;
+		
+		IF locstock - quantity[i] < 0 OR locstock IS NULL THEN
+			RETURN false;
+		END IF;
+	END LOOP;
+	RAISE NOTICE '%', locstock;
+   RETURN true;
+END;
+$$;
+
+
+ALTER FUNCTION public.stock_checker(ids integer[], quantity integer[]) OWNER TO postgres;
+
+--
+-- Name: stockchecker(integer[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.stockchecker(a integer[]) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$
+declare
+	available bool;
+BEGIN
+
+   RETURN available;
+END;
+$$;
+
+
+ALTER FUNCTION public.stockchecker(a integer[]) OWNER TO postgres;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: action_types; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.action_types (
+    id bigint NOT NULL,
+    type_name text NOT NULL
+);
+
+
+ALTER TABLE public.action_types OWNER TO postgres;
+
+--
+-- Name: actionTypes_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public."actionTypes_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public."actionTypes_id_seq" OWNER TO postgres;
+
+--
+-- Name: actionTypes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public."actionTypes_id_seq" OWNED BY public.action_types.id;
+
+
+--
+-- Name: clients; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.clients (
+    id bigint NOT NULL,
+    name text NOT NULL,
+    join_date timestamp(0) without time zone NOT NULL,
+    phone bigint,
+    email text,
+    adress text,
+    nip text,
+    short_note text,
+    document_with_weights tsvector
+);
+
+
+ALTER TABLE public.clients OWNER TO postgres;
+
+--
+-- Name: clients_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.clients_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.clients_id_seq OWNER TO postgres;
+
+--
+-- Name: clients_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.clients_id_seq OWNED BY public.clients.id;
+
+
+--
+-- Name: computer_pieces; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.computer_pieces (
+    id bigint NOT NULL,
+    part_id bigint NOT NULL,
+    belonging_computer_id bigint NOT NULL,
+    quantity bigint NOT NULL
+);
+
+
+ALTER TABLE public.computer_pieces OWNER TO postgres;
+
+--
+-- Name: computer_pieces_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.computer_pieces_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.computer_pieces_id_seq OWNER TO postgres;
+
+--
+-- Name: computer_pieces_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.computer_pieces_id_seq OWNED BY public.computer_pieces.id;
+
+
+--
+-- Name: computers; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.computers (
+    id bigint NOT NULL,
+    name text NOT NULL,
+    assembled_at timestamp(0) without time zone NOT NULL,
+    short_note text,
+    document_with_weights tsvector
+);
+
+
+ALTER TABLE public.computers OWNER TO postgres;
+
+--
+-- Name: computers_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.computers_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.computers_id_seq OWNER TO postgres;
+
+--
+-- Name: computers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.computers_id_seq OWNED BY public.computers.id;
+
+
+--
+-- Name: history; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.history (
+    id bigint NOT NULL,
+    action_id integer NOT NULL,
+    part_id integer,
+    computer_id integer,
+    problem_id integer,
+    client_id integer,
+    supplier_id integer,
+    at_time timestamp without time zone,
+    order_id integer,
+    details text,
+    target_id integer
+);
+
+
+ALTER TABLE public.history OWNER TO postgres;
+
+--
+-- Name: history_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.history_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.history_id_seq OWNER TO postgres;
+
+--
+-- Name: history_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.history_id_seq OWNED BY public.history.id;
+
+
+--
+-- Name: order_chunks; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.order_chunks (
+    id bigint NOT NULL,
+    part_id integer,
+    sell_price integer NOT NULL,
+    quantity integer NOT NULL,
+    belonging_order_id integer NOT NULL,
+    computer_id integer
+);
+
+
+ALTER TABLE public.order_chunks OWNER TO postgres;
+
+--
+-- Name: orderChunk_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public."orderChunk_id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public."orderChunk_id_seq" OWNER TO postgres;
+
+--
+-- Name: orderChunk_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public."orderChunk_id_seq" OWNED BY public.order_chunks.id;
+
+
+--
+-- Name: orders; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.orders (
+    id bigint NOT NULL,
+    client_id integer NOT NULL,
+    sell_date timestamp(0) without time zone NOT NULL,
+    name text
+);
+
+
+ALTER TABLE public.orders OWNER TO postgres;
+
+--
+-- Name: orders_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.orders_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.orders_id_seq OWNER TO postgres;
+
+--
+-- Name: orders_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.orders_id_seq OWNED BY public.orders.id;
+
+
+--
+-- Name: parts; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.parts (
+    id bigint NOT NULL,
+    name text NOT NULL,
+    stock integer NOT NULL,
+    price numeric(18,2) NOT NULL,
+    purchase_date timestamp(0) without time zone NOT NULL,
+    short_note text,
+    supplier_id integer,
+    segment_id integer NOT NULL,
+    document_with_weights tsvector,
+    CONSTRAINT stock_nonegative CHECK ((stock >= 0))
+);
+
+
+ALTER TABLE public.parts OWNER TO postgres;
+
+--
+-- Name: parts_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.parts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.parts_id_seq OWNER TO postgres;
+
+--
+-- Name: parts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.parts_id_seq OWNED BY public.parts.id;
+
+
+--
+-- Name: problems; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.problems (
+    id bigint NOT NULL,
+    computer_id bigint NOT NULL,
+    problem_note text NOT NULL,
+    hand_in_date timestamp(0) without time zone,
+    deadline_date timestamp(0) without time zone,
+    finished boolean DEFAULT false NOT NULL,
+    document_with_weights tsvector
+);
+
+
+ALTER TABLE public.problems OWNER TO postgres;
+
+--
+-- Name: problems_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.problems_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.problems_id_seq OWNER TO postgres;
+
+--
+-- Name: problems_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.problems_id_seq OWNED BY public.problems.id;
+
+
+--
+-- Name: segments; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.segments (
+    id bigint NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE public.segments OWNER TO postgres;
+
+--
+-- Name: segments_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.segments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.segments_id_seq OWNER TO postgres;
+
+--
+-- Name: segments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.segments_id_seq OWNED BY public.segments.id;
+
+
+--
+-- Name: suppliers; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.suppliers (
+    id bigint NOT NULL,
+    name text NOT NULL,
+    join_date timestamp(0) without time zone NOT NULL,
+    website text,
+    email text,
+    phone bigint,
+    adress text,
+    nip character varying,
+    short_note text,
+    document_with_weights tsvector
+);
+
+
+ALTER TABLE public.suppliers OWNER TO postgres;
+
+--
+-- Name: suppliers_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.suppliers_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.suppliers_id_seq OWNER TO postgres;
+
+--
+-- Name: suppliers_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.suppliers_id_seq OWNED BY public.suppliers.id;
+
+
+--
+-- Name: temp_computer_table; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.temp_computer_table OF public.temp_comp_table;
+
+
+ALTER TABLE public.temp_computer_table OWNER TO postgres;
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.users (
+    id bigint NOT NULL,
+    email text NOT NULL,
+    password text NOT NULL,
+    username text NOT NULL
+);
+
+
+ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.users_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.users_id_seq OWNER TO postgres;
+
+--
+-- Name: users_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
+
+
+--
+-- Name: action_types id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.action_types ALTER COLUMN id SET DEFAULT nextval('public."actionTypes_id_seq"'::regclass);
+
+
+--
+-- Name: clients id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.clients ALTER COLUMN id SET DEFAULT nextval('public.clients_id_seq'::regclass);
+
+
+--
+-- Name: computer_pieces id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.computer_pieces ALTER COLUMN id SET DEFAULT nextval('public.computer_pieces_id_seq'::regclass);
+
+
+--
+-- Name: computers id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.computers ALTER COLUMN id SET DEFAULT nextval('public.computers_id_seq'::regclass);
+
+
+--
+-- Name: history id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.history ALTER COLUMN id SET DEFAULT nextval('public.history_id_seq'::regclass);
+
+
+--
+-- Name: order_chunks id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.order_chunks ALTER COLUMN id SET DEFAULT nextval('public."orderChunk_id_seq"'::regclass);
+
+
+--
+-- Name: orders id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.orders ALTER COLUMN id SET DEFAULT nextval('public.orders_id_seq'::regclass);
+
+
+--
+-- Name: parts id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parts ALTER COLUMN id SET DEFAULT nextval('public.parts_id_seq'::regclass);
+
+
+--
+-- Name: problems id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.problems ALTER COLUMN id SET DEFAULT nextval('public.problems_id_seq'::regclass);
+
+
+--
+-- Name: segments id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.segments ALTER COLUMN id SET DEFAULT nextval('public.segments_id_seq'::regclass);
+
+
+--
+-- Name: suppliers id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.suppliers ALTER COLUMN id SET DEFAULT nextval('public.suppliers_id_seq'::regclass);
+
+
+--
+-- Name: users id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+
+--
+-- Data for Name: action_types; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.action_types (id, type_name) FROM stdin;
+0	Dodano część
+1	Zmodyfikowano część
+2	Usunięto część
+3	Stworzono zamówienie
+4	Usunięto zamówienie
+5	Złożono komputer
+6	Zmodyfikowano komputer
+7	Rozłożono komputer
+8	Dodano problem
+9	Zmodyfikowano problem
+10	Rozwiązano problem
+11	Usunięto problem
+12	Dodano klienta
+13	Zmodyfikowano klienta
+14	Usunięto klienta
+15	Dodano dostawcę
+16	Zmodyfikowano dostawcę
+17	Usunięto dostawcę
+\.
+
+
+--
+-- Data for Name: clients; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.clients (id, name, join_date, phone, email, adress, nip, short_note, document_with_weights) FROM stdin;
+1	John Black	2021-09-17 20:13:00	48603088160	john@black.com	ul. Damrow 214	1234563218	Ladny facet	'1234563218':7B '17/09/2021':11 '214':10C '48603088160':5B 'black':2A 'damrow':9C 'facet':4B 'john':1A 'john@black.com':6B 'ladny':3B 'ul':8C
+13	James Smith	2021-08-24 20:14:00	48481241264	james@gmail.com	4124	1242141241	Fajny gość	'1242141241':5B '24/08/2021':7 '4124':6C '41241':2B '412@421.gsdg':4B '4812412':3B 'dreaw':1A
+11	Wojciech Juliusz	2021-09-03 13:43:00	48603081211	w.zych@strona.agency	Jadachy 22	\N	\N	'03/09/2021':7 '22':6C '48603081211':3B 'jadachy':5C 'w.zych@strona.agency':4B 'wojciech':1A 'zych':2A
+10	Marusz Nalepa	2021-08-23 23:01:00	48603088169	\N	\N	2424214212	\N	'24/08/2021':4 '2424214212':3B '48424421241':2B 'maruszz':1A
+8	Amadeusz Wajcheprzełóż	2021-08-23 22:59:00	\N	\N	\N	\N	\N	'24/08/2021':2 'ileneusz':1A
+6	Dariusz Palacz	2021-08-23 22:19:00	\N	\N	\N	\N	\N	'24/08/2021':2 'dariuesz':1A
+2	Michał Kuluts	2021-08-27 19:53:00	4851012512	michał@gmail.com	\N	1241221419	Ładny, niski blondyn	'1241221419':5B '132513':6C '27/08/2021':7 '4851012512':3B '513251@gsfhg.dfhg':4B '51351':2B 'mariusz':1A
+5	Amelia Chorożny	2021-08-23 20:14:00	\N	\N	\N	\N	\N	'24/08/2021':2 'mariusz':1A
+\.
+
+
+--
+-- Data for Name: computer_pieces; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.computer_pieces (id, part_id, belonging_computer_id, quantity) FROM stdin;
+13	1	5	1
+14	2	5	1
+15	3	5	1
+35	5	10	1
+36	6	10	1
+37	7	10	1
+38	5	11	1
+39	6	11	1
+40	7	11	1
+41	65	12	1
+42	64	12	1
+43	62	12	1
+44	65	13	1
+45	62	13	1
+46	64	13	1
+50	50	15	1
+51	50	16	1
+52	59	16	1
+54	48	17	1
+55	59	17	1
+56	50	18	8
+57	66	19	9
+58	58	19	3
+59	50	20	1
+61	64	20	1
+63	54	20	3
+64	49	20	2
+65	60	20	4
+66	66	21	1
+67	69	21	1
+68	65	21	1
+69	55	22	1
+71	57	22	1
+70	56	22	1
+\.
+
+
+--
+-- Data for Name: computers; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.computers (id, name, assembled_at, short_note, document_with_weights) FROM stdin;
+5	Złapdejtowany	2021-08-08 12:08:00	\N	'08/08/2021':2C 'złapdejtowany':1A
+19	kProcesss4214095201tj1wg9ps4i-02	2021-09-02 12:09:00	\N	'-02':2A '02/09/2021':3C 'kprocesss4214095201tj1wg9ps4i':1A
+20	Cycccaaee	2021-09-03 12:09:00	\N	'03/09/2021':2C 'cycccaaee':1A
+21	Komputronix 3000	2021-09-02 00:19:00	Dla gracza mega fajny jest	'02/09/2021':8C '3000':2A 'dla':3B 'fajny':6B 'gracza':4B 'jest':7B 'komputronix':1A 'mega':5B
+22	kMariuzFana104318ubow2vhb8t-13	2021-10-13 18:43:00	\N	'-13':2A '13/10/2021':3C 'kmariuzfana104318ubow2vhb8t':1A
+11	Łoo panoie mega	2021-08-08 12:10:11	\N	'08/08/2021':4C 'mega':3A 'panoie':2A 'łoo':1A
+17	Fajen komputronik	2021-09-02 00:31:00	\N	'02/09/2021':3C 'fajen':1A 'komputronik':2A
+12	Łoo panoie mega	2021-08-08 12:10:11	\N	'08/08/2021':4C 'mega':3A 'panoie':2A 'łoo':1A
+10	Łoo panoie mega	2021-08-08 12:10:11	\N	'08/08/2021':4C 'mega':3A 'panoie':2A 'łoo':1A
+13	Łoo panoie mega	2021-08-08 12:10:11	Mega fajny	'08/08/2021':6C 'fajny':5B 'mega':3A,4B 'panoie':2A 'łoo':1A
+15	kUltradr093100qdv9c6i1bs-02	2021-09-02 00:31:00	\N	'-02':2A '02/09/2021':3C 'kultradr093100qdv9c6i1bs':1A
+16	Kuutas	2021-09-02 12:09:00	\N	'02/09/2021':2C 'kuutas':1A
+18	kUdas00odplh61ou1-02	2021-09-02 12:09:00	\N	'-02':2A '02/09/2021':3C 'kudas00odplh61ou1':1A
+\.
+
+
+--
+-- Data for Name: history; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.history (id, action_id, part_id, computer_id, problem_id, client_id, supplier_id, at_time, order_id, details, target_id) FROM stdin;
+1	0	\N	\N	\N	\N	\N	\N	\N	Arra 420	39
+2	2	\N	\N	\N	\N	\N	\N	\N	No to to co robiłem sprzedałem	3
+3	7	\N	\N	\N	\N	\N	\N	\N	Fajny mega	7
+4	7	\N	\N	\N	\N	\N	\N	\N	Łoo panoie mega	9
+5	5	\N	\N	\N	\N	\N	\N	\N	Łoo panoie mega	10
+6	8	\N	\N	\N	\N	\N	\N	\N	Twój  się zepsuło, nie było mnie słychać	17
+7	9	\N	\N	\N	\N	\N	\N	\N	Jednak coś innego szczeliło	6
+8	0	\N	\N	\N	\N	\N	\N	\N	BSDAS 420	40
+9	0	\N	\N	\N	\N	\N	\N	\N	BSDAS 420	41
+10	5	\N	\N	\N	\N	\N	\N	\N	Łoo panoie mega	11
+11	0	\N	\N	\N	\N	\N	\N	\N	Fajny produkt	42
+12	0	\N	\N	\N	\N	\N	\N	\N	Rateix 2410	43
+13	0	\N	\N	\N	\N	\N	\N	\N	Super Produkt	45
+14	0	\N	\N	\N	\N	\N	\N	\N	Nie wiem	46
+15	0	\N	\N	\N	\N	\N	\N	\N	Nie wiem	47
+16	0	\N	\N	\N	\N	\N	\N	\N	Kintel Prol I7	48
+17	0	\N	\N	\N	\N	\N	\N	\N	Gigabyt 1240 px GAMING EDITION	49
+18	0	\N	\N	\N	\N	\N	\N	\N	Ultra drut	50
+19	0	\N	\N	\N	\N	\N	\N	\N	Nowa płytka	51
+20	0	\N	\N	\N	\N	\N	\N	\N	e 3	52
+21	0	\N	\N	\N	\N	\N	\N	\N	e 3	53
+22	0	\N	\N	\N	\N	\N	\N	\N	e 3	54
+23	0	\N	\N	\N	\N	\N	\N	\N	Mariuz	55
+24	0	\N	\N	\N	\N	\N	\N	\N	Fana	56
+25	0	\N	\N	\N	\N	\N	\N	\N	Fjanafsa 	57
+26	0	\N	\N	\N	\N	\N	\N	\N	4214	58
+27	0	\N	\N	\N	\N	\N	\N	\N	4124	59
+28	12	\N	\N	\N	\N	\N	\N	\N	Mariusz	3
+29	12	\N	\N	\N	\N	\N	\N	\N	dReaw	4
+30	12	\N	\N	\N	\N	\N	\N	\N	Mariusz	5
+31	12	\N	\N	\N	\N	\N	\N	\N	Dariuesz	6
+32	12	\N	\N	\N	\N	\N	\N	\N	Belzariusz	7
+33	12	\N	\N	\N	\N	\N	\N	\N	Ileneusz	8
+34	12	\N	\N	\N	\N	\N	\N	\N	Bierniasz	9
+35	12	\N	\N	\N	\N	\N	\N	\N	Maruszz	10
+36	0	\N	\N	\N	\N	\N	\N	\N	Mariuszex123	60
+37	0	\N	\N	\N	\N	\N	\N	\N	Printexa	61
+38	0	\N	\N	\N	\N	\N	\N	\N	Płytex	62
+39	0	\N	\N	\N	\N	\N	\N	\N	StillWorking?	63
+40	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+41	1	\N	\N	\N	\N	\N	\N	\N	\N	43
+42	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+43	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+44	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+45	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+46	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+47	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+48	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+49	1	\N	\N	\N	\N	\N	\N	\N	\N	63
+50	1	\N	\N	\N	\N	\N	\N	\N	\N	62
+51	1	\N	\N	\N	\N	\N	\N	\N	\N	62
+52	1	\N	\N	\N	\N	\N	\N	\N	\N	59
+53	1	\N	\N	\N	\N	\N	\N	\N	\N	46
+54	1	\N	\N	\N	\N	\N	\N	\N	\N	25
+55	1	\N	\N	\N	\N	\N	\N	\N	\N	62
+56	1	\N	\N	\N	\N	\N	\N	\N	\N	61
+57	0	\N	\N	\N	\N	\N	\N	\N	Artuditu	64
+58	0	\N	\N	\N	\N	\N	\N	\N	Dziurexx	65
+59	1	\N	\N	\N	\N	\N	\N	\N	\N	26
+60	1	\N	\N	\N	\N	\N	\N	\N	\N	65
+61	1	\N	\N	\N	\N	\N	\N	\N	\N	65
+62	1	\N	\N	\N	\N	\N	\N	\N	\N	65
+63	1	\N	\N	\N	\N	\N	\N	\N	\N	65
+64	1	\N	\N	\N	\N	\N	\N	\N	\N	65
+65	0	\N	\N	\N	\N	\N	\N	\N	Processsor	66
+66	1	\N	\N	\N	\N	\N	\N	\N	\N	10
+67	1	\N	\N	\N	\N	\N	\N	\N	\N	64
+68	1	\N	\N	\N	\N	\N	\N	\N	\N	64
+69	1	\N	\N	\N	\N	\N	\N	\N	\N	58
+70	1	\N	\N	\N	\N	\N	\N	\N	\N	64
+71	1	\N	\N	\N	\N	\N	\N	\N	\N	64
+72	3	\N	\N	\N	\N	\N	\N	\N	No to to co robiłem sprzedałem	4
+73	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	7
+74	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	6
+75	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	5
+76	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	8
+77	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	9
+78	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	10
+79	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	11
+80	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 13:34 	12
+81	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Dariuesz w dniu i godzinie 2021-08-29 13:55 	14
+82	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Dariuesz w dniu i godzinie 2021-08-29 13:55 	13
+83	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	16
+84	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	17
+85	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	18
+86	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	19
+87	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	20
+88	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	15
+89	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	21
+90	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Belzariusz w dniu i godzinie 2021-08-29 15:29 	22
+91	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Maruszz w dniu i godzinie 2021-08-29 15:34 	24
+92	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Maruszz w dniu i godzinie 2021-08-29 15:34 	23
+93	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 15:39 	2
+94	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 15:39 	1
+95	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 15:42 	4
+96	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Mariusz w dniu i godzinie 2021-08-29 15:42 	3
+97	3	\N	\N	\N	\N	\N	\N	\N	5	5
+98	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla Dariuesz w dniu i godzinie 2021-08-29 15:54 	1
+99	3	\N	\N	\N	\N	\N	\N	\N	Dla fajnego pana	1
+100	15	\N	\N	\N	\N	\N	\N	\N	Gieniek	7
+101	15	\N	\N	\N	\N	\N	\N	\N	MariuszPol	8
+102	15	\N	\N	\N	\N	\N	\N	\N	Dobry typ	9
+103	1	\N	\N	\N	\N	\N	\N	\N	\N	66
+104	16	\N	\N	\N	\N	\N	\N	\N	Gieniek2	7
+105	16	\N	\N	\N	\N	\N	\N	\N	Gieniek28	7
+106	16	\N	\N	\N	\N	\N	\N	\N	Gieniek28	7
+107	1	\N	\N	\N	\N	\N	\N	\N	\N	66
+108	1	\N	\N	\N	\N	\N	\N	\N	\N	7
+220	1	\N	\N	\N	\N	\N	2021-10-24 16:30:42.987066	\N	\N	41
+109	3	\N	\N	\N	\N	\N	\N	\N	Sprzedaż dla John Black w dniu i godzinie 2021-08-27 01:20 	2
+110	16	\N	\N	\N	\N	\N	\N	\N	Gieniek28	7
+111	13	\N	\N	\N	\N	\N	\N	\N	Mariusz	373
+112	13	\N	\N	\N	\N	\N	\N	\N	Mariusz	373
+113	0	\N	\N	\N	\N	\N	\N	\N	Płytex RX 420	67
+114	0	\N	\N	\N	\N	\N	\N	\N	Kartexx RX 4210	68
+115	17	\N	\N	\N	\N	\N	\N	\N	Dobry typ	9
+116	1	\N	\N	\N	\N	\N	\N	\N	\N	68
+117	2	\N	\N	\N	\N	\N	\N	\N	Kartexx RX 4210	68
+118	2	\N	\N	\N	\N	\N	\N	\N	StillWorking1?21	63
+119	2	\N	\N	\N	\N	\N	\N	\N	Bierniasz	9
+120	2	\N	\N	\N	\N	\N	\N	\N	Belzariusz	7
+121	1	\N	\N	\N	\N	\N	\N	\N	\N	61
+122	1	\N	\N	\N	\N	\N	\N	\N	\N	66
+123	1	\N	\N	\N	\N	\N	\N	\N	\N	61
+124	1	\N	\N	\N	\N	\N	\N	\N	\N	47
+125	16	\N	\N	\N	\N	\N	\N	\N	Gieniek28	7
+126	16	\N	\N	\N	\N	\N	\N	\N	Gieniek28	7
+127	16	\N	\N	\N	\N	\N	\N	\N	Gieniek28	7
+128	16	\N	\N	\N	\N	\N	\N	\N	AB Polska	1
+129	16	\N	\N	\N	\N	\N	\N	\N	Proline pl	6
+130	16	\N	\N	\N	\N	\N	\N	\N	Proline pl	6
+131	16	\N	\N	\N	\N	\N	\N	\N	PolHur	5
+132	5	\N	\N	\N	\N	\N	\N	\N	Łoo panoie mega	12
+133	2	\N	\N	\N	\N	\N	\N	\N	Mariusz	373
+134	5	\N	\N	\N	\N	\N	\N	\N	Łoo panoie mega	13
+135	1	\N	\N	\N	\N	\N	\N	\N	\N	26
+136	5	\N	\N	\N	\N	\N	\N	\N	kRateix2Fajnypr092723u11zizpfyp-02	14
+137	5	\N	\N	\N	\N	\N	\N	\N	kUltradr093100qdv9c6i1bs-02	15
+138	1	\N	\N	\N	\N	\N	\N	\N	\N	5
+139	5	\N	\N	\N	\N	\N	\N	\N	kUltradrqa093100ww8blv6lg9-02	16
+140	5	\N	\N	\N	\N	\N	\N	\N	Fajen komputronik	17
+141	5	\N	\N	\N	\N	\N	\N	\N	kUltradr093800odplh61ou1-02	18
+142	6	\N	\N	\N	\N	\N	\N	\N	Łoo panoie mega	5
+143	6	\N	\N	\N	\N	\N	\N	\N	Złapdejtowany	5
+144	5	\N	\N	\N	\N	\N	\N	\N	kProcesss4214095201tj1wg9ps4i-02	19
+145	5	\N	\N	\N	\N	\N	\N	\N	Cycccaaee	20
+146	1	\N	\N	\N	\N	\N	\N	\N	\N	51
+147	7	\N	\N	\N	\N	\N	\N	\N	kRateix2Fajnypr092723u11zizpfyp-02	14
+148	8	\N	\N	\N	\N	\N	\N	\N	4124	18
+149	8	\N	\N	\N	\N	\N	\N	\N	No niestety się popsuł	19
+150	8	\N	\N	\N	\N	\N	\N	\N	Tam się płyta główna mogła skiepścić	20
+151	12	\N	\N	\N	\N	\N	\N	\N	Wojciech Zych	11
+152	13	\N	\N	\N	\N	\N	\N	\N	Wojciech Zych	11
+153	1	\N	\N	\N	\N	\N	\N	\N	\N	66
+154	13	\N	\N	\N	\N	\N	\N	\N	John Black	1
+155	9	\N	\N	\N	\N	\N	\N	\N	4124	18
+156	9	\N	\N	\N	\N	\N	\N	\N	Tam się płyta główna mogła skiepścić	20
+157	9	\N	\N	\N	\N	\N	\N	\N	Tam się płyta główna mogła skiepścić	20
+158	9	\N	\N	\N	\N	\N	\N	\N	Tam się płyta główna mogła skiepścić	20
+159	9	\N	\N	\N	\N	\N	\N	\N	Tam się płyta główna mogła skiepścić	20
+160	9	\N	\N	\N	\N	\N	\N	\N	Tam się płyta główna mogła skiepścić	20
+161	1	\N	\N	\N	\N	\N	\N	\N	\N	66
+162	9	\N	\N	\N	\N	\N	\N	\N	Tam się płyta główna mogła skiepścić	20
+163	0	\N	\N	\N	\N	\N	2021-09-03 23:34:58.812071	\N	Karta graficzna	69
+164	5	\N	\N	\N	\N	\N	2021-09-03 23:44:58.3732	\N	Komputronix 3000	21
+165	1	\N	\N	\N	\N	\N	2021-09-11 18:32:09.003862	\N	\N	69
+166	1	\N	\N	\N	\N	\N	2021-10-07 19:56:13.628969	\N	\N	69
+167	1	\N	\N	\N	\N	\N	2021-10-07 19:56:27.516313	\N	\N	64
+168	9	\N	\N	\N	\N	\N	2021-10-07 19:58:57.217393	\N	Tam się płyta główna mogła skiepścić	20
+169	1	\N	\N	\N	\N	\N	2021-10-07 20:06:36.215173	\N	\N	46
+170	1	\N	\N	\N	\N	\N	2021-10-07 20:08:31.311256	\N	\N	69
+171	1	\N	\N	\N	\N	\N	2021-10-07 20:08:33.356112	\N	\N	69
+172	1	\N	\N	\N	\N	\N	2021-10-07 20:08:33.659017	\N	\N	69
+173	1	\N	\N	\N	\N	\N	2021-10-07 20:08:34.155888	\N	\N	69
+174	1	\N	\N	\N	\N	\N	2021-10-07 20:08:36.151552	\N	\N	69
+175	1	\N	\N	\N	\N	\N	2021-10-07 20:08:40.993021	\N	\N	69
+176	16	\N	\N	\N	\N	\N	2021-10-07 20:25:58.649006	\N	MariuszPol	8
+177	16	\N	\N	\N	\N	\N	2021-10-07 20:26:01.117198	\N	MariuszPol	8
+178	0	\N	\N	\N	\N	\N	2021-10-07 20:34:14.146474	\N	Płycia	70
+179	1	\N	\N	\N	\N	\N	2021-10-13 18:44:08.413305	\N	\N	70
+180	5	\N	\N	\N	\N	\N	2021-10-13 18:55:41.312526	\N	kMariuzFana104318ubow2vhb8t-13	22
+181	1	\N	\N	\N	\N	\N	2021-10-15 15:13:00.4525	\N	\N	70
+182	13	\N	\N	\N	\N	\N	2021-10-16 22:05:29.821218	\N	Wojciech Zych	11
+183	1	\N	\N	\N	\N	\N	2021-10-17 00:02:21.941373	\N	\N	62
+184	1	\N	\N	\N	\N	\N	2021-10-17 00:02:29.195316	\N	\N	54
+185	0	\N	\N	\N	\N	\N	2021-10-17 20:44:13.919953	\N	Gigabyt	71
+186	0	\N	\N	\N	\N	\N	2021-10-24 14:00:11.858335	\N	 ASUS Tuf GeForce RTX 3080Ti Gaming LHR 12GB	72
+187	0	\N	\N	\N	\N	\N	2021-10-24 14:01:08.589291	\N	Gigabyte GeForce RTX 3070 VISION OC LHR 8GB GDDR6	73
+188	0	\N	\N	\N	\N	\N	2021-10-24 14:04:03.845254	\N	AMD Radeon Pro W5700 8GB GDDR6	74
+189	0	\N	\N	\N	\N	\N	2021-10-24 14:04:22.929177	\N	MSI Radeon RX 6700 XT MECH 2X OC 12GB GDDR6	75
+190	1	\N	\N	\N	\N	\N	2021-10-24 15:35:38.960091	\N	\N	61
+191	1	\N	\N	\N	\N	\N	2021-10-24 15:38:01.150704	\N	\N	58
+192	1	\N	\N	\N	\N	\N	2021-10-24 15:39:37.669638	\N	\N	39
+193	1	\N	\N	\N	\N	\N	2021-10-24 15:54:37.446912	\N	\N	38
+194	1	\N	\N	\N	\N	\N	2021-10-24 16:07:04.347025	\N	\N	71
+195	1	\N	\N	\N	\N	\N	2021-10-24 16:07:39.750254	\N	\N	70
+196	1	\N	\N	\N	\N	\N	2021-10-24 16:07:43.128463	\N	\N	70
+197	1	\N	\N	\N	\N	\N	2021-10-24 16:08:14.631951	\N	\N	66
+198	1	\N	\N	\N	\N	\N	2021-10-24 16:08:16.597111	\N	\N	66
+199	1	\N	\N	\N	\N	\N	2021-10-24 16:14:46.414926	\N	\N	69
+200	1	\N	\N	\N	\N	\N	2021-10-24 16:15:23.812224	\N	\N	65
+201	1	\N	\N	\N	\N	\N	2021-10-24 16:16:15.978445	\N	\N	64
+202	1	\N	\N	\N	\N	\N	2021-10-24 16:17:06.690752	\N	\N	62
+203	1	\N	\N	\N	\N	\N	2021-10-24 16:17:45.944602	\N	\N	60
+204	1	\N	\N	\N	\N	\N	2021-10-24 16:18:09.802734	\N	\N	59
+205	1	\N	\N	\N	\N	\N	2021-10-24 16:18:49.245141	\N	\N	57
+206	1	\N	\N	\N	\N	\N	2021-10-24 16:19:31.557641	\N	\N	56
+207	1	\N	\N	\N	\N	\N	2021-10-24 16:20:11.014534	\N	\N	55
+208	1	\N	\N	\N	\N	\N	2021-10-24 16:20:48.617027	\N	\N	54
+209	1	\N	\N	\N	\N	\N	2021-10-24 16:21:35.425063	\N	\N	53
+210	1	\N	\N	\N	\N	\N	2021-10-24 16:25:12.365815	\N	\N	52
+211	1	\N	\N	\N	\N	\N	2021-10-24 16:25:40.225194	\N	\N	51
+212	1	\N	\N	\N	\N	\N	2021-10-24 16:25:59.564938	\N	\N	50
+213	1	\N	\N	\N	\N	\N	2021-10-24 16:26:55.195107	\N	\N	48
+214	1	\N	\N	\N	\N	\N	2021-10-24 16:27:33.099436	\N	\N	47
+215	1	\N	\N	\N	\N	\N	2021-10-24 16:28:06.041384	\N	\N	46
+216	1	\N	\N	\N	\N	\N	2021-10-24 16:28:29.221449	\N	\N	45
+217	1	\N	\N	\N	\N	\N	2021-10-24 16:28:56.080359	\N	\N	44
+218	1	\N	\N	\N	\N	\N	2021-10-24 16:29:25.228875	\N	\N	43
+219	1	\N	\N	\N	\N	\N	2021-10-24 16:30:12.343996	\N	\N	42
+221	1	\N	\N	\N	\N	\N	2021-10-24 16:31:07.342326	\N	\N	40
+222	1	\N	\N	\N	\N	\N	2021-10-24 16:31:29.741007	\N	\N	25
+223	1	\N	\N	\N	\N	\N	2021-10-24 16:32:13.276192	\N	\N	2
+224	1	\N	\N	\N	\N	\N	2021-10-24 16:32:40.07988	\N	\N	5
+225	1	\N	\N	\N	\N	\N	2021-10-24 16:34:29.636351	\N	\N	56
+226	13	\N	\N	\N	\N	\N	2021-10-24 16:35:41.965699	\N	James Smith	13
+227	13	\N	\N	\N	\N	\N	2021-10-24 16:35:57.174052	\N	James Smith	13
+228	13	\N	\N	\N	\N	\N	2021-10-24 16:36:04.84857	\N	Wojciech Juliusz	11
+229	13	\N	\N	\N	\N	\N	2021-10-24 16:36:23.056864	\N	Marusz Nalepa	10
+230	13	\N	\N	\N	\N	\N	2021-10-24 16:36:37.032806	\N	Amadeusz Wajcheprzełóż	8
+231	13	\N	\N	\N	\N	\N	2021-10-24 16:36:46.096052	\N	Dariusz Palacz	6
+232	13	\N	\N	\N	\N	\N	2021-10-24 16:37:05.272218	\N	Amelia Chorożnyf	5
+233	13	\N	\N	\N	\N	\N	2021-10-24 16:37:29.300682	\N	Mariusz	2
+234	13	\N	\N	\N	\N	\N	2021-10-24 16:37:59.697044	\N	Michał Kuluts	2
+235	13	\N	\N	\N	\N	\N	2021-10-24 16:38:05.95442	\N	Amelia Chorożny	5
+236	16	\N	\N	\N	\N	\N	2021-10-24 16:38:26.883718	\N	MariuszPol	8
+237	9	\N	\N	\N	\N	\N	2021-10-24 18:00:41.166065	\N	Tam się płyta główna mogła skiepścić	20
+238	9	\N	\N	\N	\N	\N	2021-10-24 18:00:52.938308	\N	No niestety się popsuł	19
+239	9	\N	\N	\N	\N	\N	2021-10-24 18:01:04.349612	\N	Nie no tam musiało coś paść	18
+240	9	\N	\N	\N	\N	\N	2021-10-24 18:01:12.200651	\N	Tets tego	14
+241	9	\N	\N	\N	\N	\N	2021-10-24 18:01:21.170016	\N	Twój  się zepsuło, nie było mnie słychać	17
+242	9	\N	\N	\N	\N	\N	2021-10-24 18:01:28.551631	\N	Twój  się zepsuło, nie było mnie słychać	16
+\.
+
+
+--
+-- Data for Name: order_chunks; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.order_chunks (id, part_id, sell_price, quantity, belonging_order_id, computer_id) FROM stdin;
+1	66	4124	1	1	\N
+2	\N	421	1	1	10
+3	65	421	1	1	\N
+4	61	466	10	2	\N
+\.
+
+
+--
+-- Data for Name: orders; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.orders (id, client_id, sell_date, name) FROM stdin;
+1	5	2021-08-29 15:54:00	Dla fajnego pana
+2	1	2021-08-27 01:20:00	Sprzedaż dla John Black w dniu i godzinie 2021-08-27 01:20 
+\.
+
+
+--
+-- Data for Name: parts; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.parts (id, name, stock, price, purchase_date, short_note, supplier_id, segment_id, document_with_weights) FROM stdin;
+1	Intel Core i5-1155G7	5	2400.00	2021-06-14 00:15:05	no fajny procek	1	1	'1155g7':5A '14/06/2021':12 'ab':9C 'core':2A 'fajny':7B 'i5':4A 'i5-1155g7':3A 'intel':1A 'no':6B 'polska':10C 'procek':8B 'procesory':11
+56	Gigabyte Geforce GTX 750Ti OC 2GB DDR5	123	330.00	2021-08-24 13:10:00	\N	1	2	'24/08/2021':6 'ab':2C 'fana':1A 'graficzne':5 'karty':4 'polska':3C
+3	AMD Ryzen 7 3700X	52	1200.00	2021-06-14 00:23:04	\N	4	1	'14/06/2021':9 '3700x':4A '7':3A 'amd':1A 'kom':7C 'procesory':8 'ryzen':2A 'x':6C 'x-kom':5C
+6	ASRock Z270 PRO GAMER	11	2600.00	2021-08-08 13:11:01	mudirbord fajny	5	3	'08/08/2021':11 'asrock':1A 'fajny':6B 'gamer':4A 'gl':9 'mudirbord':5B 'plyty':8 'polhur':7C 'pro':3A 'wne':10 'z270':2A
+24	APPLE A12 BIDONIC CHIP	16	760.00	2021-08-07 07:10:11	Nowy procek apple	1	1	'07/08/2021':11 'a12':2A 'ab':8C 'apple':1A,7B 'bidonic':3A 'chip':4A 'nowy':5B 'polska':9C 'procek':6B 'procesory':10
+39	MSI GeForce GTX 1650 D6 Ventus XS OC 4GB GDDR6	3	1899.00	2021-08-07 20:10:11	\N	1	2	'07/08/2021':7 '420':2A 'ab':3C 'arra':1A 'graficzne':6 'karty':5 'polska':4C
+38	3DFX VOODOO4 4500 32MB PCI	54	2548.00	2021-08-07 20:10:11	\N	1	2	'07/08/2021':7 '420':2A 'ab':3C 'arra':1A 'graficzne':6 'karty':5 'polska':4C
+71	MSI GTX 970 Gaming 4GB	1	1229.00	2021-10-17 18:42:00	\N	3	2	'17/10/2021':6 'delivery':3C 'gigabyt':1A 'graficzne':5 'karty':4 'kuki':2C
+70	MSI MPG X570 Gaming Plus	6	823.90	2021-10-07 14:33:00	2321	3	3	'07/10/2021':8 '2321':2B 'delivery':4C 'gl':6 'kuki':3C 'plyty':5 'płycia':1A 'wne':7
+57	MSEKKO NVIDIA GTX 550 Ti Pci-e 2.0	3	421.00	2021-08-24 15:13:00	\N	1	2	'24/08/2021':7 'ab':3C 'fjanafsa':1A 'graficzne':6 'karty':5 'polska':4C 'taa':2B
+55	Gigabyte Radeon RX 5500 XT OC 4GB GDDR6	6	2199.00	2021-08-24 15:04:00	\N	3	2	'24/08/2021':7 'delivery':4C 'fjanee':2B 'graficzne':6 'karty':5 'kuki':3C 'mariuz':1A
+53	AMD Radeon Pro W5500 8GB GDDR6	2	2419.00	2021-08-24 14:56:00	\N	1	2	'24/08/2021':8 '3':2A '5432':3B 'ab':4C 'e':1A 'graficzne':7 'karty':6 'polska':5C
+52	MSI Geforce RTX 2070 SUPER GAMING X 8GB GDDR6	2	2599.00	2021-08-24 14:56:00	\N	1	2	'24/08/2021':8 '3':2A '5432':3B 'ab':4C 'e':1A 'graficzne':7 'karty':6 'polska':5C
+45	Gigabyte B450 AORUS PRO	6	449.00	2021-08-26 02:18:00	Duży fajny produkt	3	3	'26/08/2021':11 'delivery':7C 'duży':3B 'fajny':4B 'gl':9 'kuki':6C 'plyty':8 'produkt':2A,5B 'super':1A 'wne':10
+44	AMD Ryzen 5 5600X	4	1449.00	2021-08-26 02:18:00	\N	1	1	'26/08/2021':6 'ab':3C 'daw':2B 'nem':1A 'polska':4C 'procesory':5
+41	MSI GeForce RTX 3070 SUPRIM X LHR 8GB GDDR6	3	4899.00	2021-08-07 20:10:11	\N	1	2	'07/08/2021':7 '420':2A 'ab':3C 'bsdas':1A 'graficzne':6 'karty':5 'polska':4C
+40	MSI GeForce RTX 3080 Ti GAMING X TRIO LHR 12GB GDDR6X	1	8999.00	2021-08-07 20:10:11	\N	1	2	'07/08/2021':7 '420':2A 'ab':3C 'bsdas':1A 'graficzne':6 'karty':5 'polska':4C
+2	ASUS GeForce RTX 3060 Ti DUAL OC V2 LHR 8GB GDDR6	14	3899.00	2021-08-07 20:10:11	\N	6	3	'07/08/2021':10 'gaming':3A 'gigabyte':1A 'gl':8 'motherboard':4A 'pl':6C 'plyty':7 'proline':5C 'wne':9 'z470':2A
+51	Gigabyte B560M D3H	6	399.00	2021-08-24 00:04:00	\N	4	3	'24/08/2021':9 'gl':7 'kom':5C 'nowa':1A 'plyty':6 'płytka':2A 'wne':8 'x':4C 'x-kom':3C
+50	MSI MPG Z490 GAMING PLUS	3	699.00	2021-08-24 01:39:00	\N	3	1	'24/08/2021':7 '412':3B 'delivery':5C 'drut':2A 'kuki':4C 'procesory':6 'ultra':1A
+43	AMD Ryzen 3 1200 AF	11	399.00	2020-08-20 00:06:00	Dobry produkt	1	1	'20/08/2020':8 '241':2A 'ab':5C 'dobry':3B 'polska':6C 'procesory':7 'produkt':4B 'rateix':1A
+25	Qualcom Snapdragon 845	26	760.00	2021-08-07 18:10:11	\N	4	1	'07/08/2021':9 '8454':3A 'graficzne':8 'karty':7 'kom':6C 'qualcom':1A 'snapdragon':2A 'x':5C 'x-kom':4C
+26	ZOTAC RTX 2060 TI DDR6 8GB Ray tracing4	17	2240.00	2021-08-02 18:10:11	\N	5	2	'02/08/2021':12 '2060':3A '8gb':6A 'ddr6':5A 'graficzne':11 'karty':10 'polhur':9C 'ray':7A 'rtx':2A 'ti':4A 'tracing4':8A 'zotac':1A
+10	APPLE A11 BIONIC CHIP	16	600.00	2021-07-08 10:11:01	FAST	6	1	'08/07/2021':9 'a11':2A 'apple':1A 'bionic':3A 'chip':4A 'fast':5B 'pl':7C 'procesory':8 'proline':6C
+61	Intel Core i5-10400F	2	699.00	2021-08-26 18:16:00	\N	4	3	'122':1A '26/08/2021':9 '312':2B 'gl':7 'kom':5C 'plyty':6 'wne':8 'x':4C 'x-kom':3C
+49	Gigabyt 1240 px GAMING EDITION	40	1242.00	2021-08-24 03:13:00	Fajny ten	4	3	'1240':2A '24/08/2021':14 'edition':5A 'fajny':6B 'gaming':4A 'gigabyt':1A 'gl':12 'kom':10C 'plyty':11 'px':3A 'ten':7B 'wne':13 'x':9C 'x-kom':8C
+72	 ASUS Tuf GeForce RTX 3080Ti Gaming LHR 12GB	1	8600.00	2021-10-24 13:58:00	\N	7	2	'12gb':8A '24/10/2021':12 '3080ti':5A 'asus':1A 'gaming':6A 'geforce':3A 'gieniek28':9C 'graficzne':11 'karty':10 'lhr':7A 'rtx':4A 'tuf':2A
+73	Gigabyte GeForce RTX 3070 VISION OC LHR 8GB GDDR6	2	4799.00	2021-10-24 13:58:00	\N	7	2	'24/10/2021':13 '3070':4A '8gb':8A 'gddr6':9A 'geforce':2A 'gieniek28':10C 'gigabyte':1A 'graficzne':12 'karty':11 'lhr':7A 'oc':6A 'rtx':3A 'vision':5A
+74	AMD Radeon Pro W5700 8GB GDDR6	1	4349.00	2021-10-24 14:03:00	\N	3	2	'24/10/2021':11 '8gb':5A 'amd':1A 'delivery':8C 'gddr6':6A 'graficzne':10 'karty':9 'kuki':7C 'pro':3A 'radeon':2A 'w5700':4A
+75	MSI Radeon RX 6700 XT MECH 2X OC 12GB GDDR6	2	4499.00	2021-10-24 14:03:00	\N	3	2	'12gb':9A '24/10/2021':15 '2x':7A '6700':4A 'delivery':12C 'gddr6':10A 'graficzne':14 'karty':13 'kuki':11C 'mech':6A 'msi':1A 'oc':8A 'radeon':2A 'rx':3A 'xt':5A
+58	Inno3D GeForce RTX 2060 Twin X2 6GB GDDR6	6	2799.00	2021-08-24 13:14:00	\N	1	2	'24/08/2021':7 '4124':2B '4214':1A 'ab':3C 'graficzne':6 'karty':5 'polska':4C
+66	Intel Core i9-9900KF, 3.6GHz, 16 MB, BOX	9	1544.34	2021-08-26 11:37:00	\N	1	1	'124':2B '26/08/2021':6 'ab':3C 'polska':4C 'procesory':5 'processsor':1A
+65	ASRock B460M PRO4	6	419.00	2021-08-26 15:22:00	\N	6	3	'26/08/2021':8 'dziurexx':1A 'gl':6 'małpaa':2B 'pl':4C 'plyty':5 'proline':3C 'wne':7
+62	Gigabyte GeForce GT 730 2GB DDR3	6	359.00	2021-08-24 18:20:00	\N	1	2	'24/08/2021':7 '42':2B 'ab':3C 'graficzne':6 'karty':5 'polska':4C 'płytex4':1A
+60	Gigabyte GeForce GT 730 2GB DDR3	12	479.00	2021-08-25 00:13:00	\N	1	2	'25/08/2021':6 'ab':2C 'graficzne':5 'karty':4 'mariuszex123':1A 'polska':3C
+59	 ASUS GeForce GTX 1650 TUF OC - 4GB GDDR5 RAM	3	990.00	2021-08-24 13:14:00	\N	1	2	'24/08/2021':6 'ab':2C 'graficzne':5 'karty':4 'polska':3C 'qa':1A
+54	MSI Radeon RX 470 Gaming X 4GB GDDR5	1	929.00	2021-08-24 12:56:00	\N	3	2	'24/08/2021':8 '3':2A '5432':3B 'delivery':5C 'e':1A 'graficzne':7 'karty':6 'kuki':4C
+48	Intel Core i7-9800X	3	1649.00	2020-12-18 06:50:00	Fajny Procek generalnie	5	1	'18/12/2020':9 'fajny':4B 'generalnie':6B 'i7':3A 'kintel':1A 'polhur':7C 'procek':5B 'procesory':8 'prol':2A
+47	 3Dfx Voodoo 2 (BMG312) 12 MB EDO RAM PCI 	1	130.00	2021-08-19 02:42:00	Notatka fajna	3	2	'19/08/2021':9 'delivery':6C 'fajna':4B 'graficzne':8 'karty':7 'kuki':5C 'nie':1A 'notatka':3B 'wiem':2A
+7	NZXT Z370 Workload Mod	8	1000.00	2021-08-08 11:11:01	mudirbord fajny	1	3	'08/08/2021':12 'ab':7C 'fajny':6B 'gl':10 'mod':4A 'mudirbord':5B 'nzxt':1A 'plyty':9 'polska':8C 'wne':11 'workload':3A 'z370':2A
+42	Gigabyte GeForce RTX 3060 EAGLE OC LHR 12GB GDDR6	2	3399.00	2021-08-20 04:06:00	Dobry produkt	1	2	'20/08/2021':9 'ab':5C 'dobry':3B 'fajny':1A 'graficzne':8 'karty':7 'polska':6C 'produkt':2A,4B
+5	Gigabyte GeForce RTX 3080 Ti GAMING OC 12GB GDDR6X 384bit	12	4600.00	2021-06-13 20:25:32	\N	3	2	'12gb':8A '13/06/2021':15 '3080':4A '384bit':10A 'delivery':12C 'gaming':6A 'gddr6x':9A 'geforce':2A 'gigabyte':1A 'graficzne':14 'karty':13 'kuki':11C 'oc':7A 'rtx':3A 'ti':5A
+69	XFX RX 5500 XT Thicc II Pro 4 GB GDDR6	4	1876.00	2021-09-03 13:34:00	\N	3	2	'03/09/2021':7 'delivery':4C 'graficzna':2A 'graficzne':6 'karta':1A 'karty':5 'kuki':3C
+64	Intel i5-6500 3.20GHz 6MB BOX	4	1242.00	2021-08-26 11:19:00	\N	3	1	'26/08/2021':6 '421':2B 'artuditu42':1A 'delivery':4C 'kuki':3C 'procesory':5
+46	MSI MAG Z590 TORPEDO	1	1099.00	2021-08-19 00:42:00	Notatka fajna2	5	3	'19/08/2021':9 'fajna2':4B 'gl':7 'nie':1A 'notatka':3B 'plyty':6 'polhur':5C 'wa4512':2A 'wne':8
+\.
+
+
+--
+-- Data for Name: problems; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.problems (id, computer_id, problem_note, hand_in_date, deadline_date, finished, document_with_weights) FROM stdin;
+2	5	125fsaf adf	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':3B,4B '125fsaf':1A 'adf':2A
+7	5	Twój  się zepsuło, nie było mnie słychać	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+8	5	Twój  się zepsuło, nie było mnie słychać	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+9	5	Twój  się zepsuło, nie było mnie słychać	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+10	5	Twój  się zepsuło, nie było mnie słychać	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+5	5	Twój  się zepsuło, nie było mnie słychać	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+11	5	Twój  się zepsuło, nie było mnie słychać	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+12	5	ASFASF ASGEADG AD	2021-08-07 22:10:11	2021-08-07 22:10:11	f	'07/08/2021':4B,5B 'ad':3A 'asfasf':1A 'asgeadg':2A
+6	10	Jednak coś innego szczeliło	2021-08-07 22:10:11	2021-08-07 22:10:11	t	'07/08/2021':5B,6B 'coś':2A 'innego':3A 'jednak':1A 'szczeliło':4A
+3	5	125fsaf adf	2021-08-07 22:10:11	2021-08-07 22:10:11	t	'07/08/2021':3B,4B '125fsaf':1A 'adf':2A
+4	5	125fsaf adf	2021-08-07 22:10:11	2021-08-07 22:10:11	t	'07/08/2021':3B,4B '125fsaf':1A 'adf':2A
+13	5	ASFASF ASGEADG AD	2021-08-07 22:10:11	2021-08-07 22:10:11	t	'07/08/2021':4B,5B 'ad':3A 'asfasf':1A 'asgeadg':2A
+20	21	Tam się płyta główna mogła skiepścić	2021-09-03 05:35:00	\N	f	'03/09/2021':7B 'główna':4A 'mogła':5A 'płyta':3A 'się':2A 'skiepścić':6A 'tam':1A
+19	15	No niestety się popsuł	2021-09-03 17:35:00	2021-09-17 19:35:00	f	'03/09/2021':5B '17/09/2021':6B 'niestety':2A 'no':1A 'popsuł':4A 'się':3A
+18	17	Nie no tam musiało coś paść	2021-09-03 15:32:00	\N	f	'03/09/2021':2B '4124':1A
+14	5	Tets tego	2021-08-07 20:10:11	2021-08-07 20:10:11	f	'07/08/2021':4B,5B 'ad':3A 'asfasf':1A 'asgeadg':2A
+17	19	Twój  się zepsuło, nie było mnie słychać	2021-08-07 20:10:11	2021-08-07 20:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+16	22	Twój  się zepsuło, nie było mnie słychać	2021-08-07 20:10:11	2021-08-07 20:10:11	f	'07/08/2021':8B,9B 'było':5A 'mnie':6A 'nie':4A 'się':2A 'słychać':7A 'twój':1A 'zepsuło':3A
+\.
+
+
+--
+-- Data for Name: segments; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.segments (id, name) FROM stdin;
+1	procesory
+2	karty graficzne
+3	plyty gl¢wne
+\.
+
+
+--
+-- Data for Name: suppliers; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.suppliers (id, name, join_date, website, email, phone, adress, nip, short_note, document_with_weights) FROM stdin;
+3	Kuki Delivery	2021-06-14 00:20:26	\N	kuki@oboz.pl	666124623	\N	\N	\N	'14/06/2021':5 '666124623':3C 'delivery':2A 'kuki':1A 'kuki@oboz.pl':4B
+4	X-Kom	2021-06-14 00:21:15	\N	\N	\N	\N	\N	\N	'14/06/2021':4 'kom':3A 'x':2A 'x-kom':1A
+7	Gieniek28	2021-08-25 17:20:00	https://strona.agency	421@gasd.dfds	48231421424	\N	5315353412	\N	'25/08/2021':6 '421@gasd.dfds':3B '48231421424':2C '5315353412':5B 'gieniek28':1A 'strona.agency':4B
+1	AB Polska	2021-06-13 22:10:18	ww.strona.agency	ab@polska.pl	603088160	\N	\N	\N	'13/06/2021':6 '603088160':3C 'ab':1A 'ab@polska.pl':4B 'polska':2A 'ww.strona.agency':5B
+6	Proline pl	2020-06-02 12:10:11	http://proline.pl	hello@proline.pl	48605124122	Katowice Katowicka	2241241224	\N	'02/06/2020':9 '2241241224':6B '48605124122':3C 'hello@proline.pl':4B 'katowice':7C 'katowicka':8C 'pl':2A 'proline':1A 'proline.pl':5B
+5	PolHur	2021-08-08 10:39:34	polhurt.pl	czesc@polhurt.pl	48603099160	ul magnoliowa 13	1251532542	fajna firma	'08/08/2021':11 '1251532542':7B '13':10C '48603099160':4C 'czesc@polhurt.pl':5B 'fajna':2C 'firma':3C 'magnoliowa':9C 'polhur':1A 'polhurt.pl':6B 'ul':8C
+8	MariuszPol	2021-08-26 12:43:00	https://strona.agency	maniuchta3@gmail.com	48609420123	ul. Rudna 20	6124214215	Dobra, fajna hurtownia	'20':11C '26/08/2021':12 '48609420123':5C '6124214215':8B 'chłop':3C 'fajny':2C 'maniuchta3@gmail.com':6B 'mariuszpol':1A 'rudna':10C 'strona.agency':7B 'swój':4C 'ul':9C
+\.
+
+
+--
+-- Data for Name: temp_computer_table; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.temp_computer_table (computer_id, computer_name, processor_name, motherboard_name, graphics_card_name, computer_value, short_note, assembled_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.users (id, email, password, username) FROM stdin;
+7	maniuchta3@gmail.com	$2b$10$UkugGsmRTTCulASiwdkDPeqCy.ySPnopdKf5Fvu6MYimOzpOhV0AW	mariusz
+\.
+
+
+--
+-- Name: actionTypes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public."actionTypes_id_seq"', 1, true);
+
+
+--
+-- Name: clients_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.clients_id_seq', 11, true);
+
+
+--
+-- Name: computer_pieces_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.computer_pieces_id_seq', 71, true);
+
+
+--
+-- Name: computers_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.computers_id_seq', 22, true);
+
+
+--
+-- Name: history_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.history_id_seq', 242, true);
+
+
+--
+-- Name: orderChunk_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public."orderChunk_id_seq"', 4, true);
+
+
+--
+-- Name: orders_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.orders_id_seq', 2, true);
+
+
+--
+-- Name: parts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.parts_id_seq', 75, true);
+
+
+--
+-- Name: problems_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.problems_id_seq', 20, true);
+
+
+--
+-- Name: segments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.segments_id_seq', 3, true);
+
+
+--
+-- Name: suppliers_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.suppliers_id_seq', 9, true);
+
+
+--
+-- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.users_id_seq', 7, true);
+
+
+--
+-- Name: action_types actionTypes_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.action_types
+    ADD CONSTRAINT "actionTypes_pkey" PRIMARY KEY (id);
+
+
+--
+-- Name: clients clients_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.clients
+    ADD CONSTRAINT clients_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: computer_pieces computer_pieces_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.computer_pieces
+    ADD CONSTRAINT computer_pieces_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: computers computers_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.computers
+    ADD CONSTRAINT computers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: history history_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.history
+    ADD CONSTRAINT history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: order_chunks orderChunk_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.order_chunks
+    ADD CONSTRAINT "orderChunk_pkey" PRIMARY KEY (id);
+
+
+--
+-- Name: orders orders_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.orders
+    ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: parts parts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parts
+    ADD CONSTRAINT parts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: problems problems_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.problems
+    ADD CONSTRAINT problems_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: segments segments_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.segments
+    ADD CONSTRAINT segments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: suppliers suppliers_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.suppliers
+    ADD CONSTRAINT suppliers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: document_weights_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX document_weights_idx ON public.parts USING gin (document_with_weights);
+
+
+--
+-- Name: order_chunks belonging_order_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.order_chunks
+    ADD CONSTRAINT belonging_order_id FOREIGN KEY (belonging_order_id) REFERENCES public.orders(id) NOT VALID;
+
+
+--
+-- Name: order_chunks computer_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.order_chunks
+    ADD CONSTRAINT computer_id FOREIGN KEY (computer_id) REFERENCES public.computers(id) NOT VALID;
+
+
+--
+-- Name: computer_pieces computer_pieces_belonging_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.computer_pieces
+    ADD CONSTRAINT computer_pieces_belonging_id_foreign FOREIGN KEY (belonging_computer_id) REFERENCES public.computers(id) NOT VALID;
+
+
+--
+-- Name: history history_action_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.history
+    ADD CONSTRAINT history_action_id_foreign FOREIGN KEY (action_id) REFERENCES public.action_types(id) NOT VALID;
+
+
+--
+-- Name: order_chunks item_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.order_chunks
+    ADD CONSTRAINT item_id FOREIGN KEY (part_id) REFERENCES public.parts(id) NOT VALID;
+
+
+--
+-- Name: orders orders_client_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.orders
+    ADD CONSTRAINT orders_client_id_foreign FOREIGN KEY (client_id) REFERENCES public.clients(id);
+
+
+--
+-- Name: parts parts_segment_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parts
+    ADD CONSTRAINT parts_segment_id_foreign FOREIGN KEY (segment_id) REFERENCES public.segments(id) ON DELETE SET NULL NOT VALID;
+
+
+--
+-- Name: parts parts_supplier_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.parts
+    ADD CONSTRAINT parts_supplier_id_foreign FOREIGN KEY (supplier_id) REFERENCES public.suppliers(id) ON DELETE SET NULL NOT VALID;
+
+
+--
+-- Name: problems problems_computer_id_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.problems
+    ADD CONSTRAINT problems_computer_id_foreign FOREIGN KEY (computer_id) REFERENCES public.computers(id) ON DELETE CASCADE NOT VALID;
+
+
+--
+-- PostgreSQL database dump complete
+--
+

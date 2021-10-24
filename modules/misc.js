@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withPaginSort = require('../functions/pagination');
+const withParams = require('../functions/pagination');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 

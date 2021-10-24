@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withPaginSort = require('../functions/pagination');
+const withParams = require('../functions/pagination');
 const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());
@@ -29,7 +29,7 @@ router.get('/suppliers', async (req, res) => {
   const insideQS = `SELECT DISTINCT ON (suppliers.id) suppliers.id as supplier_id, suppliers.name as supplier_name, TO_CHAR(join_date :: DATE, 'dd/mm/yyyy') as join_date, website, email, phone, adress, nip, suppliers.short_note as supplier_short_note, parts.name as last_purchased_part, TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') as last_sold_date FROM suppliers LEFT JOIN parts ON suppliers.id = parts.supplier_id
    ORDER BY suppliers.id, parts.purchase_date DESC`;
 
-  const wholeQS = withPaginSort(
+  const wholeQS = withParams(
     `WITH distinctSuppliers AS (${insideQS}) SELECT supplier_id, supplier_name, join_date, website, phone, email, adress, nip, supplier_short_note, last_purchased_part, TO_CHAR(last_sold_date :: DATE, 'dd/mm/yyyy') as last_sold_date FROM distinctSuppliers`,
     req.query.page,
     req.query.sort_by,

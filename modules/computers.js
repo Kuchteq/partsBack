@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withPaginSort = require('../functions/pagination');
+const withParams = require('../functions/pagination');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
@@ -53,7 +53,7 @@ const computersUpdateSchema = yup.object().shape({
 router.get('/computers', async (req, res) => {
   'Here express will pull data from the database and return it in this form';
 
-  const returnComputersQS = withPaginSort('SELECT * FROM get_computers()', req.query.page, req.query.sort_by, req.query.sort_dir);
+  const returnComputersQS = withParams('SELECT * FROM get_computers()', req.query.page, req.query.sort_by, req.query.sort_dir);
 
   pool.query(returnComputersQS, async (err, qResults) => {
     if (err) {

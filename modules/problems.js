@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withPaginSort = require('../functions/pagination');
+const withParams = require('../functions/pagination');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
@@ -24,7 +24,7 @@ router.get('/problems', async (req, res) => {
   'Here express will pull data from the database and return it in this form';
 
   //short for query string
-  const QS = withPaginSort(
+  const QS = withParams(
     `SELECT  problems.id as problem_id, computers.name as computer_name, problems.computer_id, problem_note, TO_CHAR(hand_in_date :: DATE, 'dd/mm/yyyy') as hand_in_date, TO_CHAR(deadline_date :: DATE, 'dd/mm/yyyy hh:mm') as deadline_date , 
     clients.name as client_name,
     finished FROM problems JOIN computers ON (computer_id = computers.id)

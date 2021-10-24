@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withPaginSort = require('../functions/pagination');
+const withParams = require('../functions/pagination');
 const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());
@@ -13,7 +13,7 @@ const insertSuccess = 'Supplier added';
 router.get('/multisearch', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  let sQuery = req.query.q.replaceAll(' ', '+');
+  let sQuery = req.query.s.replaceAll(' ', '+');
 
   //zrób za pomocą returning ile tych queriesów
 
@@ -44,7 +44,7 @@ router.get('/multisearch', async (req, res) => {
     WHERE problems.document_with_weights @@ to_tsquery('"${sQuery}":*') OR computers.document_with_weights @@ to_tsquery('"${sQuery}":*')
     ORDER BY ts_rank(problems.document_with_weights, to_tsquery('"${sQuery}":*'))`,
   };
-  console.log('japierdole');
+
   const searchAcross = req.query.across;
 
   let promises = [];

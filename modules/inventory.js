@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withPaginSort = require('../functions/pagination');
+const withParams = require('../functions/pagination');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
@@ -26,14 +26,16 @@ router.get('/inventory', async (req, res) => {
   'Here express will pull data from the database and return it in this form';
 
   //short for query string
-  const QS = withPaginSort(
+  const QS = withParams(
     `SELECT parts.id as part_id, segments.name as segments_name, parts.name as part_name, parts.stock, trim_scale(parts.price), parts.short_note,
   suppliers.name as suppliers_name, TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') AS purchase_date FROM parts 
   LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
   LEFT JOIN segments ON (parts.segment_id = segments.id)`,
     req.query.page,
     req.query.sort_by,
-    req.query.sort_dir
+    req.query.sort_dir,
+    req.query.s,
+    ['parts']
   );
 
   pool.query(QS, async (err, qResults) => {
@@ -41,6 +43,7 @@ router.get('/inventory', async (req, res) => {
       console.log(err);
       res.status(400).send(bodyErrror);
     } else {
+      console.log(qResults.rows.length);
       res.status(200).send(qResults.rows);
     }
   });
