@@ -63,7 +63,7 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
-//app.use(protectRoutes);
+app.use(protectRoutes);
 app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, misc, multiSearch]);
 
 const invalidCredsMessage = 'Invalid login credentials';
@@ -96,6 +96,12 @@ app.post('/userlogin', async (req, response) => {
       res.send('An error occoured');
     }
   });
+});
+
+app.post('/userlogout', async (req, response) => {
+  token = req.cookies.Authorization;
+  response.clearCookie('Authorization');
+  response.send('logged out');
 });
 
 app.post('/e', async (req, res) => {

@@ -135,7 +135,8 @@ router.delete('/inventory/:id', async (req, res) => {
 router.get('/inventory-basic/:arr', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  const QS = `SELECT parts.id as part_id, segment_id, parts.name as part_name, parts.stock, parts.price FROM parts WHERE id IN(${req.params.arr})`;
+  const QS = `SELECT parts.id as part_id, jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj, 
+  parts.name as part_name, parts.stock, parts.price FROM parts LEFT JOIN segments on (parts.segment_id = segments.id) WHERE parts.id IN(${req.params.arr})`;
 
   pool.query(QS, [], async (err, qResults) => {
     if (err) {
