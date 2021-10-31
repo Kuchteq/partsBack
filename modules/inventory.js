@@ -1,10 +1,9 @@
+//Importing the necessary libraries/tools
 const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
 const withParams = require('../functions/pagination');
-const checkStock = require('../functions/stockChecker');
-const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());
@@ -12,6 +11,8 @@ router.use(express.json());
 const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'Part added';
 
+/* defining schema allows for verifying whether the request made 
+to the server follows the expected form */
 const partsAddSchema = yup.object().shape({
   segment_id: yup.number().integer().required(),
   part_name: yup.string().required(),
@@ -50,7 +51,7 @@ router.get('/inventory', async (req, res) => {
 });
 
 router.get('/inventory/:id', async (req, res) => {
-  'Here express will pull id individual data from the database and return it in this form';
+  //Here express will pull id individual data from the database and return it in this form
 
   const QS = `SELECT segments.id as segment_id, parts.name as part_name, parts.stock as stock, parts.price, 
   parts.short_note, purchase_date, jsonb_build_object('value', suppliers.id, 'label', suppliers.name) as supplier_obj,
@@ -70,7 +71,7 @@ router.get('/inventory/:id', async (req, res) => {
 });
 
 router.post('/inventory', async (req, res) => {
-  'Here all the arguments like segment, model name, amount, price will be passed';
+  //Here all the arguments like segment, model name, amount, price will be passed
 
   const QS = `INSERT INTO parts (segment_id, name, stock, price, supplier_id, short_note, purchase_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;`;
 
@@ -93,7 +94,7 @@ router.post('/inventory', async (req, res) => {
 });
 
 router.put('/inventory/:id', async (req, res) => {
-  'Here all the arguments like segment, model name, amount, price will be passed';
+  //Here all the arguments like segment, model name, amount, price will be passed
 
   const QS = `UPDATE parts SET segment_id = $1, name = $2, stock = $3, price = $4, supplier_id = $5,
   short_note = $6, purchase_date = $7 WHERE id = $8 RETURNING id`;
@@ -116,7 +117,7 @@ router.put('/inventory/:id', async (req, res) => {
 });
 
 router.delete('/inventory/:id', async (req, res) => {
-  'Here express will pull id individual data from the database and return it in this form';
+  //Here express delete  individual id data from the database
   const itemToDeleteId = req.params.id;
   const QS = `DELETE FROM parts WHERE id = $1 RETURNING name`;
 
@@ -133,8 +134,6 @@ router.delete('/inventory/:id', async (req, res) => {
 
 //basic part info
 router.get('/inventory-basic/:arr', async (req, res) => {
-  'Here express will pull id individual data from the database and return it in this form';
-
   const QS = `SELECT parts.id as part_id, jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj, 
   parts.name as part_name, parts.stock, parts.price FROM parts LEFT JOIN segments on (parts.segment_id = segments.id) WHERE parts.id IN(${req.params.arr})`;
 
@@ -149,8 +148,6 @@ router.get('/inventory-basic/:arr', async (req, res) => {
 });
 
 router.get('/inventory-all-bycat/:cat', async (req, res) => {
-  'Here express will pull id individual data from the database and return it in this form';
-
   const QS = `SELECT parts.id as value, parts.name as label, parts.stock, parts.price FROM parts WHERE segment_id = $1 ORDER BY id DESC`;
 
   pool.query(QS, [req.params.cat], async (err, qResults) => {
@@ -163,4 +160,5 @@ router.get('/inventory-all-bycat/:cat', async (req, res) => {
   });
 });
 
+//exporting this module so that it can be imported in the main back.js
 module.exports = router;

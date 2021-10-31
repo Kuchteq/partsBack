@@ -1,15 +1,11 @@
 const express = require('express');
-const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
 const withParams = require('../functions/pagination');
-const checkStock = require('../functions/stockChecker');
-const checkComputerExistance = require('../functions/computerChecker.js');
 
 router.use(express.json());
 
 const bodyErrror = "There's something wrong with data body, see console errors";
-const insertSuccess = 'Part added';
 
 router.get('/history', async (req, res) => {
   'Here express will pull data from the database and return it in this form';

@@ -1,5 +1,7 @@
 /* eslint-disable quotes */
 /* eslint-disable no-unused-expressions */
+
+//Importing the necessary libraries/tools
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -8,6 +10,7 @@ const pool = require('./db');
 const cookieParser = require('cookie-parser');
 const dayjs = require('dayjs');
 
+//importing the self-made modules
 const inventory = require('./modules/inventory');
 const suppliers = require('./modules/suppliers');
 const clients = require('./modules/clients');
@@ -19,40 +22,38 @@ const misc = require('./modules/misc');
 const multiSearch = require('./modules/multiSearch');
 
 const saltRounds = 10;
-const myPlaintextPassword = 'DWAtesty123';
-const someOtherPlaintextPassword = 'not_bacon';
 
+/*
+  Creating the instance of express object which is the main framework used for backend, 
+  through this object, you define routes and add middlaware
+*/
 const app = express();
 
+//function used for authentication by that looks into the authorization request cookie
 const verifyUser = (req, res, next) => {
   token = req.cookies.Authorization;
-
   if (!token) return res.sendStatus(403);
 
+  //Verify the user by their json webtoken
   jwt.verify(token, 'secretkey', (err, data) => {
     if (err) {
+      //If the token validation is not successful don't proceed to do any other functions on that route, return only 403 status
       res.sendStatus(403);
     } else {
+      //Do the rest of the request
       next();
     }
   });
 };
 
 const protectRoutes = (req, res, next) => {
+  //Every route in the app is protected except the log in one
   if (req._parsedUrl.pathname === '/userlogin') {
     next();
   } else {
     verifyUser(req, res, next);
   }
 };
-// pass is DWAtesty123
-
-bcrypt.genSalt(saltRounds, async (err, salt) => {
-  bcrypt.hash('DWAtesty123', salt, async (err, hash) => {
-    // Store hash in your password DB.
-    hashedPass = await hash;
-  });
-});
 
 app.use(
   cors({
@@ -63,7 +64,11 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
+
+//Before every request, make sure that the routes are protected by importing the previously created middleware
 app.use(protectRoutes);
+
+//Use the routes from the module folder
 app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, misc, multiSearch]);
 
 const invalidCredsMessage = 'Invalid login credentials';
@@ -71,6 +76,7 @@ const invalidCredsMessage = 'Invalid login credentials';
 const port = 5000;
 
 app.post('/userlogin', async (req, response) => {
+  //route responsible for authenticating the user
   const { _email, username, password } = req.body;
 
   const userPass = await pool.query('SELECT * FROM users WHERE username = $1', [username], async (err, queryResults) => {
@@ -99,98 +105,10 @@ app.post('/userlogin', async (req, response) => {
 });
 
 app.post('/userlogout', async (req, response) => {
+  //Route that deletes the HTTPonly cookie
   token = req.cookies.Authorization;
   response.clearCookie('Authorization');
   response.send('logged out');
-});
-
-app.post('/e', async (req, res) => {
-  const { email, password, username } = req.body;
-  try {
-    const userReturn = await pool.query('INSERT INTO users(username, email, password) VALUES ($1, $2, $3) RETURNING *', [
-      username,
-      email,
-      password,
-    ]);
-    res.json(userReturn);
-  } catch (err) {
-    console.log(err.message);
-  }
-});
-
-// routes would be protected with jwt
-
-app.get('/reports/', async (req, res) => {
-  'Typically it would pull out the last 3 months of data and display it in , but it could be skipped by an argument skip ';
-});
-
-app.get('/reports-sheet/', async (req, res) => {
-  `It generates a record based on the options start_at and end_at and returns profit, amount of sales, graph data that says what sectors were most demanded, what was the value demanded,
-    best client in terms of amounts of purchases and the most profitable one, from which suppliers were the parts most often bought`;
-});
-
-app.get('/sets/', async (req, res) => {
-  `It generates a record based on the options start_at and end_at and returns profit, amount of sales, graph data that says what sectors were most demanded, what was the value demanded,
-    best client in terms of amounts of purchases and the most profitable one, from which suppliers were the parts most often bought`;
-});
-
-app.get('/sets/:id', async (req, res) => {
-  `Gives the info about specific computer based on id`;
-});
-
-app.post('/sets-sell/', async (req, res) => {
-  'In the options an array of the individual ids of computers will be passed for the backend to delete';
-});
-
-app.post('/sets-assemble/', async (req, res) => {
-  `In the options there will be different parts ids which will then assemble the computer and add it to the database`;
-});
-app.post('/sets-disassemble/', async (req, res) => {
-  `In the options there will be different parts ids which will then assemble the computer and add it to the database`;
-});
-
-app.get('/problems/:id', async (req, res) => {
-  `Gets the specific problem based on id`;
-});
-
-app.post('/problems-add', async (req, res) => {
-  `Add a problem to the database with fields such as computer Id, handInDate, problemNote, deadlineDate`;
-});
-
-app.post('/problems-finish', async (req, res) => {
-  `Sets the problemFinished field in the database to true`;
-});
-
-app.get('/clients', async (req, res) => {
-  `Gets all the clients' brief info`;
-});
-
-app.get('/clients/:id', async (req, res) => {
-  `Gets all the clients' info with purchases`;
-});
-
-app.post('/clients-add', async (req, res) => {
-  `Add a client with fields such as name dateOfJoining`;
-});
-
-app.post('/clients-remove', async (req, res) => {
-  `Remove client`;
-});
-
-app.get('/suppliers', async (req, res) => {
-  `Gets all the suppliers' brief info`;
-});
-
-app.get('/suppliers/:id', async (req, res) => {
-  `Gets all the suppliers' info with purchases`;
-});
-
-app.post('/suppliers-add', async (req, res) => {
-  `Add a supplier with fields such as name dateOfJoining`;
-});
-
-app.post('/clients-remove', async (req, res) => {
-  `Remove supplier`;
 });
 
 app.listen(port, () => {

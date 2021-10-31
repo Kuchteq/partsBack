@@ -23,6 +23,7 @@ const pool = require('../db');
 `;
 
 const registerEvent = (action_id, target_id, target_value) => {
+  //function used to add data on actions made by the user
   return new Promise(async (resolve, reject) => {
     pool.query(
       `INSERT INTO history (action_id, target_id, details, at_time) VALUES ($1, $2, $3, NOW())`,

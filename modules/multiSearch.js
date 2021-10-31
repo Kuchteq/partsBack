@@ -1,14 +1,7 @@
 const express = require('express');
-const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withParams = require('../functions/pagination');
-const registerEvent = require('../functions/registerEvent');
-
 router.use(express.json());
-
-const bodyErrror = "There's something wrong with data body, see console errors";
-const insertSuccess = 'Supplier added';
 
 router.get('/multisearch', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
@@ -71,15 +64,6 @@ router.get('/multisearch', async (req, res) => {
       console.log(err);
       res.status(400).send(err);
     });
-
-  // pool.query(partsQS, async (err, qResults) => {
-  //   if (err) {
-  //     console.log(err);
-  //     res.status(400).send(bodyErrror);
-  //   } else {
-  //     res.status(200).send(qResults.rows);
-  //   }
-  // });
 });
 
 module.exports = router;

@@ -2,7 +2,6 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withParams = require('../functions/pagination');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
@@ -14,7 +13,7 @@ const insertSuccess = 'Part added';
 
 router.get('/orders/:year/:month', (req, res) => {
   const QS = `SELECT DISTINCT ON (orders.id) orders.id as order_id, clients.name as client_name, orders.name as order_name,
-    SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
+    ARRAY_AGG(parts.name) as parts,  SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
     orders.sell_date as sell_date FROM orders  JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
     JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
     WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2

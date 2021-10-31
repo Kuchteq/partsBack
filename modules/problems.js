@@ -21,8 +21,6 @@ const problemsAddSchema = yup.object().shape({
 });
 
 router.get('/problems', async (req, res) => {
-  'Here express will pull data from the database and return it in this form';
-
   //short for query string
   const QS = withParams(
     `SELECT  problems.id as problem_id, computers.name as computer_name, problems.computer_id, problem_note, TO_CHAR(hand_in_date :: DATE, 'dd/mm/yyyy') as hand_in_date, TO_CHAR(deadline_date :: DATE, 'dd/mm/yyyy hh:mm') as deadline_date , 
@@ -47,8 +45,6 @@ router.get('/problems', async (req, res) => {
 });
 
 router.get('/problems/:id', async (req, res) => {
-  'Here express will pull data from the database and return it in this form';
-
   //short for query string
   const QS = `SELECT 
   jsonb_build_object('value', computer_id, 'label', computers.name) as computer_obj,
@@ -67,8 +63,6 @@ router.get('/problems/:id', async (req, res) => {
 });
 
 router.post('/problems', async (req, res) => {
-  'Here express will pull data from the database and return it in this form';
-
   //short for query string
   const QS = 'INSERT INTO problems (computer_id, problem_note, hand_in_date, deadline_date) VALUES ($1, $2, $3, $4) RETURNING id';
   try {
@@ -94,8 +88,6 @@ router.post('/problems', async (req, res) => {
 });
 
 router.put('/problems/:id', async (req, res) => {
-  'Here all the arguments like segment, model name, amount, price will be passed';
-
   const QS = 'UPDATE problems SET computer_id = $1, problem_note = $2, hand_in_date = $3, deadline_date = $4 WHERE id = $5';
 
   try {
@@ -116,8 +108,6 @@ router.put('/problems/:id', async (req, res) => {
 });
 
 router.post('/problems-finish/:id', async (req, res) => {
-  'Here express will pull data from the database and return it in this form';
-
   const computer_id = req.params.id;
   //short for query string
   const QS = 'UPDATE problems SET finished = $1 WHERE id = $2 RETURNING problem_note';
