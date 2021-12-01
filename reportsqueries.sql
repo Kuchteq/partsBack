@@ -16,7 +16,7 @@ WITH all_sale_dets AS (SELECT DISTINCT ON (orders.id) SUM(order_chunks.quantity)
 	FROM new_clients, all_sale_dets
 
 'For raporting every segment'
-
+const saltRounds = 10;
 SELECT segments.name as segment_name, SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, 
 	sum(order_chunks.sell_price - parts.price) as profit
 	FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id

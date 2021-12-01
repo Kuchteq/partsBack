@@ -1,6 +1,3 @@
-/* eslint-disable quotes */
-/* eslint-disable no-unused-expressions */
-
 //Importing the necessary libraries/tools
 const express = require('express');
 const cors = require('cors');
@@ -21,11 +18,9 @@ const orders = require('./modules/orders');
 const raports = require('./modules/raports');
 const multiSearch = require('./modules/multiSearch');
 
-const saltRounds = 10;
-
 /*
   Creating the instance of express object which is the main framework used for backend, 
-  through this object, you define routes and add middlaware
+  through this object, you define routes and add middleware
 */
 const app = express();
 
@@ -62,43 +57,47 @@ app.use(
   })
 );
 
-app.use(cookieParser());
+//Middleware used for parsing the body of the request and cookies
 app.use(express.json());
+app.use(cookieParser());
 
-//Before every request, make sure that the routes are protected by importing the previously created middleware
+//Before every request, make sure that the routes are protected by imPORTing the previously created middleware
 app.use(protectRoutes);
 
-//Use the routes from the module folder
+//Integrate the routes from the module folder
 app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, multiSearch, raports]);
 
-const invalidCredsMessage = 'Invalid login credentials';
-
-const port = 5000;
+const INVALID_CREDS_MESSAGE = 'Invalid login credentials';
+const PORT = 5000;
 
 app.post('/userlogin', async (req, response) => {
   //route responsible for authenticating the user
-  const { _email, username, password } = req.body;
+  const { username, password } = req.body;
 
-  const userPass = await pool.query('SELECT * FROM users WHERE username = $1', [username], async (err, queryResults) => {
+  await pool.query('SELECT * FROM users WHERE username = $1', [username], async (err, queryResults) => {
     try {
-      if (queryResults.rowCount !== 1) return response.status(401).send(invalidCredsMessage);
+      if (queryResults.rowCount !== 1) return response.status(401).send(INVALID_CREDS_MESSAGE);
 
       bcrypt.compare(password, queryResults.rows[0].password, async (err, result) => {
         if (result == true) {
-          jwt.sign(queryResults.rows[0], 'secretkey', { expiresIn: '9999999s' }, (err, token) => {
+          jwt.sign(queryResults.rows[0], 'secretkey', { expiresIn: '14d' }, (err, token) => {
+            /* setting an httpOnly cookies in order to prevent the cookie from being read by the client
+            side javascript code for security reasons, this cookie stays only on the server side */
             response
               .status(202)
               .cookie('Authorization', token, {
                 httpOnly: true,
-                expires: dayjs().add(30, 'days').toDate(),
+                expires: dayjs().add(14, 'days').toDate(),
               })
               .send('successfully logged in');
           });
         } else {
-          return response.status(401).send(invalidCredsMessage);
+          //If the password is not correct, return a 401 status
+          return response.status(401).send(INVALID_CREDS_MESSAGE);
         }
       });
     } catch (err) {
+      //If the query fails, return the error
       res.send('An error occoured');
     }
   });
@@ -111,6 +110,7 @@ app.post('/userlogout', async (req, response) => {
   response.send('logged out');
 });
 
-app.listen(port, () => {
-  console.log(`app stared http://localhost:${port}`);
+//This starts the service on the specified port 
+app.listen(PORT, () => {
+  console.log(`Back-end service stared at http://localhost:${PORT}`);
 });
