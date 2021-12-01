@@ -3,7 +3,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withParams = require('../functions/pagination');
+const withParams = require('../functions/withParams');
 const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());

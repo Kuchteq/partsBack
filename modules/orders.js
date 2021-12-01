@@ -5,7 +5,7 @@ const pool = require('../db');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
-const withParams = require('../functions/pagination');
+const withParams = require('../functions/withParams');
 router.use(express.json());
 
 const bodyErrror = "There's something wrong with data body, see console errors";
