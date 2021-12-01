@@ -23,8 +23,9 @@ const problemsAddSchema = yup.object().shape({
 router.get('/problems', async (req, res) => {
   //short for query string
   const QS = withParams(
-    `SELECT  problems.id as problem_id, computers.name as computer_name, problems.computer_id, problem_note, TO_CHAR(hand_in_date :: DATE, 'dd/mm/yyyy') as hand_in_date, TO_CHAR(deadline_date :: DATE, 'dd/mm/yyyy hh:mm') as deadline_date , 
-    clients.name as client_name,
+    `SELECT  problems.id as problem_id, computers.name as computer_name, problems.computer_id, problem_note, 
+    TO_CHAR(hand_in_date :: DATE, 'dd/mm/yyyy') as hand_in_date, 
+    TO_CHAR(deadline_date :: DATE, 'dd/mm/yyyy hh:mm') as deadline_date, clients.name as client_name,
     finished FROM problems JOIN computers ON (computer_id = computers.id)
     LEFT JOIN order_chunks ON(problems.computer_id = order_chunks.computer_id) 
     LEFT JOIN orders ON(order_chunks.belonging_order_id = orders.id) 

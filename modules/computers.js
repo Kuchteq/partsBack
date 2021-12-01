@@ -141,7 +141,6 @@ router.put('/computers/:id', async (req, res) => {
   const addStockQS = 'UPDATE parts SET stock = stock + $1 WHERE id = $2';
   const createPieceQS = 'INSERT INTO computer_pieces (part_id, quantity, belonging_computer_id) VALUES ($1, $2, $3);';
   const getPartsInfoQS = 'SELECT id as piece_id, part_id, quantity FROM computer_pieces WHERE belonging_computer_id = $1 ORDER BY piece_id;';
-  console.log('otrzymąłem');
   checkStock(pieces)
     .then(() => {
       pool.query(modifyComputerQS, [req.body.computer_name, req.body.assembled_at, computerId], (err, q2Results) => {
@@ -220,4 +219,16 @@ router.delete('/computers/:id', async (req, res) => {
     });
 });
 
+router.get('/computer-list', async (req, res) => {
+  'Here express will pull data from the database and return it in this form';
+
+  pool.query('SELECT id as value, name as label FROM computers ORDER by id', async (err, qResults) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      res.status(200).send(qResults.rows);
+    }
+  });
+});
 module.exports = router;

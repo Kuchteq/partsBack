@@ -122,4 +122,17 @@ router.delete('/suppliers/:id', async (req, res) => {
   });
 });
 
+
+router.get('/supplier-list', async (req, res) => {
+  'Here express will pull data from the database and return it in this form';
+
+  pool.query('SELECT id as value, name as label FROM suppliers ORDER by join_date', async (err, qResults) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      res.status(200).send(qResults.rows);
+    }
+  });
+});
 module.exports = router;

@@ -119,26 +119,5 @@ FROM suppliers JOIN parts ON suppliers.id = parts.supplier_id WHERE parts.purcha
     console.log(err)
   }
 });
-router.get('/raport-individual-orders/:from/:to', async (req, res) => {
-  const { from, to } = req.params;
 
-  const QS = withParams(`SELECT DISTINCT ON (orders.id) orders.id as order_id, clients.name as client_name, orders.name as order_name,
-    ARRAY_AGG(parts.name) as parts,  SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
-    orders.sell_date as sell_date FROM orders  JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
-    JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
-    WHERE orders.sell_date between $1 and $2
-    GROUP BY orders.id, clients.name `, req.query.page,
-    req.query.sort_by,
-    req.query.sort_dir
-  );
-  console.log(QS)
-  pool.query(QS, [from, to], (err, qResults) => {
-    if (err) {
-      console.log(err);
-      res.status(400).send(bodyErrror);
-    } else {
-      res.status(200).send(qResults.rows);
-    }
-  });
-})
 module.exports = router;

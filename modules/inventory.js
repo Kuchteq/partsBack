@@ -159,6 +159,17 @@ router.get('/inventory-all-bycat/:cat', async (req, res) => {
     }
   });
 });
+router.get('/segment-list', async (req, res) => {
+  'Here express will pull data from the database and return it in this form';
 
+  pool.query('SELECT id as value, name as label FROM segments ORDER by id', async (err, qResults) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      res.status(200).send(qResults.rows);
+    }
+  });
+});
 //exporting this module so that it can be imported in the main back.js
 module.exports = router;
