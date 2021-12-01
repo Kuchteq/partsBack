@@ -1,12 +1,12 @@
 {
   "name": "partsback",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Backend for Computer Science Internal Assessment",
   "main": "back.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Mariusz Kuchta",
+  "author": "IB Student jnw678",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.0.1",
@@ -17,7 +17,7 @@
     "express": "^4.17.1",
     "jsonwebtoken": "^8.5.1",
     "pg": "^8.6.0",
-    "yup": "^0.32.9"
+    "yup": "^0.32.9" 
   },
   "devDependencies": {
     "eslint": "^7.32.0",
