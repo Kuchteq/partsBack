@@ -1,19 +1,22 @@
 //Importing the necessary libraries/tools
 const express = require('express');
 const yup = require('yup');
-const router = express.Router();
 const pool = require('../db');
 const withParams = require('../functions/withParams');
 const registerEvent = require('../functions/registerEvent');
 
+/*This is the router for the inventory module, it is similar to the app object in the back.js
+ where it too can have its routes and middleware defined but its purpose in the end is to be
+ appended to this main file with all the other router objects defined in other files*/
+const router = express.Router();
 router.use(express.json());
 
-const bodyErrror = "There's something wrong with data body, see console errors";
-const insertSuccess = 'Part added';
+const BODY_ERROR = "There's something wrong with data body, see console errors";
+const INSERT_SUCCESS = 'Part added';
 
 /* defining schema allows for verifying whether the request made 
 to the server follows the expected form */
-const partsAddSchema = yup.object().shape({
+const PARTS_ADD_SCHEMA = yup.object().shape({
   segment_id: yup.number().integer().required(),
   part_name: yup.string().required(),
   stock: yup.number().integer().required(),
@@ -24,35 +27,34 @@ const partsAddSchema = yup.object().shape({
 });
 
 router.get('/inventory', async (req, res) => {
-  'Here express will pull data from the database and return it in this form';
+  //This route controller is for getting the list of 20 parts from the database
 
-  //short for query string
+  /* short for query string, this is the query asked to the database, the with params function
+   is to modify the query and add sorting and filtering functionality and restrict the amount of asked records*/
   const QS = withParams(
-    `SELECT parts.id as part_id, segments.name as segments_name, parts.name as part_name, parts.stock, trim_scale(parts.price), parts.short_note,
-  suppliers.name as suppliers_name, TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') AS purchase_date FROM parts 
-  LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
-  LEFT JOIN segments ON (parts.segment_id = segments.id)`,
-    req.query.page,
-    req.query.sort_by,
-    req.query.sort_dir,
-    req.query.s,
-    ['parts']
+    `SELECT parts.id as part_id, segments.name as segments_name, parts.name as part_name, parts.stock, 
+    trim_scale(parts.price), parts.short_note, suppliers.name as suppliers_name,
+    TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') AS purchase_date FROM parts 
+    LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) LEFT JOIN segments ON (parts.segment_id = segments.id)`,
+    req.query.page, req.query.sort_by, req.query.sort_dir, req.query.s, ['parts']
   );
 
+  //pool is the connection to the database, QS is the query string, values is the values to be inserted to the query
   pool.query(QS, async (err, qResults) => {
     if (err) {
       console.log(err);
-      res.status(400).send(bodyErrror);
+      res.status(400).send(BODY_ERROR);
     } else {
-      console.log(qResults.rows.length);
+      //if everything is all right with the query, the results are sent to the client
       res.status(200).send(qResults.rows);
     }
   });
 });
 
 router.get('/inventory/:id', async (req, res) => {
-  //Here express will pull id individual data from the database and return it in this form
+  //This route controller is for getting retrieving information on a single part from the database based on its id
 
+  //short for query string, this is the query asked to the database
   const QS = `SELECT segments.id as segment_id, parts.name as part_name, parts.stock as stock, parts.price, 
   parts.short_note, purchase_date, jsonb_build_object('value', suppliers.id, 'label', suppliers.name) as supplier_obj,
   jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj, parts.id as part_id FROM parts 
@@ -62,7 +64,7 @@ router.get('/inventory/:id', async (req, res) => {
   pool.query(QS, [req.params.id], async (err, qResults) => {
     if (err) {
       console.log(err);
-      res.status(400).send(bodyErrror);
+      res.status(400).send(BODY_ERROR);
     } else {
       console.log(qResults.rows[0]);
       res.status(200).send(qResults.rows[0]);
@@ -71,60 +73,62 @@ router.get('/inventory/:id', async (req, res) => {
 });
 
 router.post('/inventory', async (req, res) => {
-  //Here all the arguments like segment, model name, amount, price will be passed
+  //This route controller is for adding a new part to the database
 
-  const QS = `INSERT INTO parts (segment_id, name, stock, price, supplier_id, short_note, purchase_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;`;
+  const QS = `INSERT INTO parts (segment_id, name, stock, price, supplier_id, short_note, purchase_date)
+   VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;`;
 
   try {
-    await partsAddSchema.validate(req.body);
+    await PARTS_ADD_SCHEMA.validate(req.body);
     pool.query(QS, Object.values(req.body), (err, qResults) => {
       if (err) {
         console.log('SQL problem ' + err);
 
-        res.status(406).send(bodyErrror);
+        res.status(406).send(BODY_ERROR);
       } else {
         registerEvent(0, qResults.rows[0].id, req.body.part_name); // add the newly created item/person to the history
-        res.status(200).send(insertSuccess);
+        res.status(200).send(INSERT_SUCCESS);
       }
     });
   } catch (err) {
     console.log('Data validation problem ' + err);
-    res.status(406).send(bodyErrror);
+    res.status(406).send(BODY_ERROR);
   }
 });
 
 router.put('/inventory/:id', async (req, res) => {
-  //Here all the arguments like segment, model name, amount, price will be passed
+  //This route controller is for updating a part in the database
 
   const QS = `UPDATE parts SET segment_id = $1, name = $2, stock = $3, price = $4, supplier_id = $5,
   short_note = $6, purchase_date = $7 WHERE id = $8 RETURNING id`;
 
   try {
-    await partsAddSchema.validate(req.body);
+    await PARTS_ADD_SCHEMA.validate(req.body);
     pool.query(QS, [...Object.values(req.body), req.params.id], (err, qResults) => {
       if (err) {
         console.log('SQL problem ' + err);
-        res.status(406).send(bodyErrror);
+        res.status(406).send(BODY_ERROR);
       } else {
-        registerEvent(1, qResults.rows[0].id, req.body.name); // add the newly created item/person to the history
-        res.status(200).send(insertSuccess);
+        registerEvent(1, qResults.rows[0].id, req.body.name); // add an entry to the history stating the update
+        res.status(200).send(INSERT_SUCCESS);
       }
     });
   } catch (err) {
     console.log('Data validation problem ' + err);
-    res.status(406).send(bodyErrror);
+    res.status(406).send(BODY_ERROR);
   }
 });
 
 router.delete('/inventory/:id', async (req, res) => {
-  //Here express delete  individual id data from the database
+  //This route controller is for deleting a part from the database
+
   const itemToDeleteId = req.params.id;
   const QS = `DELETE FROM parts WHERE id = $1 RETURNING name`;
 
   pool.query(QS, [itemToDeleteId], async (err, qResults) => {
     if (err || qResults.rowCount < 1) {
       console.log('unsucessful delete ' + err);
-      res.status(400).send(bodyErrror);
+      res.status(400).send(BODY_ERROR);
     } else {
       registerEvent(2, itemToDeleteId, qResults.rows[0].name);
       res.status(200).send('Successfuly deleted part');
@@ -132,15 +136,17 @@ router.delete('/inventory/:id', async (req, res) => {
   });
 });
 
-//basic part info
 router.get('/inventory-basic/:arr', async (req, res) => {
+  //controller for getting the basic information of a part from the database based on a list of ids 
+
   const QS = `SELECT parts.id as part_id, jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj, 
-  parts.name as part_name, parts.stock, parts.price FROM parts LEFT JOIN segments on (parts.segment_id = segments.id) WHERE parts.id IN(${req.params.arr})`;
+  parts.name as part_name, parts.stock, parts.price FROM parts LEFT JOIN segments on 
+  (parts.segment_id = segments.id) WHERE parts.id IN(${req.params.arr})`;
 
   pool.query(QS, [], async (err, qResults) => {
     if (err) {
       console.log(err);
-      res.status(400).send(bodyErrror);
+      res.status(400).send(BODY_ERROR);
     } else {
       res.status(200).send(qResults.rows);
     }
@@ -148,28 +154,32 @@ router.get('/inventory-basic/:arr', async (req, res) => {
 });
 
 router.get('/inventory-all-bycat/:cat', async (req, res) => {
-  const QS = `SELECT parts.id as value, parts.name as label, parts.stock, parts.price FROM parts WHERE segment_id = $1 ORDER BY id DESC`;
+  //controller for getting the basic information on all the parts from the database based on their category
+
+  const QS = `SELECT parts.id as value, parts.name as label, parts.stock, parts.price 
+  FROM parts WHERE segment_id = $1 ORDER BY id DESC`;
 
   pool.query(QS, [req.params.cat], async (err, qResults) => {
     if (err) {
       console.log(err);
-      res.status(400).send(bodyErrror);
+      res.status(400).send(BODY_ERROR);
     } else {
       res.status(200).send(qResults.rows);
     }
   });
 });
 router.get('/segment-list', async (req, res) => {
-  'Here express will pull data from the database and return it in this form';
+  //controller for getting the list of segments from the database
 
   pool.query('SELECT id as value, name as label FROM segments ORDER by id', async (err, qResults) => {
     if (err) {
       console.log(err);
-      res.status(400).send(bodyErrror);
+      res.status(400).send(BODY_ERROR);
     } else {
       res.status(200).send(qResults.rows);
     }
   });
 });
-//exporting this module so that it can be imported in the main back.js
+
+//exporting this object so that it can be imported in the main back.js
 module.exports = router;

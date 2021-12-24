@@ -20,6 +20,7 @@ const withParams = (string, page, sort_by, sort_dir = 'ASC', sQuery, dbprefixes)
 
   let constructedQuery = '';
 
+  //If the client has requested to filter the data by a specific search parameter
   if (sQuery) {
     sQuery = sQuery.replace(' ', '+');
     constructedQuery = 'WHERE ';

@@ -20,22 +20,25 @@ const multiSearch = require('./modules/multiSearch');
 
 /*
   Creating the instance of express object which is the main framework used for backend, 
-  through this object, you define routes and add middleware
+  through this object, you define routes and add middleware to this object
 */
 const app = express();
 
-//function used for authentication by that looks into the authorization request cookie
+const PORT = 5000; //Defining on which port the server will be running
+
 const verifyUser = (req, res, next) => {
+  //function used for authentication that looks into the authorization request cookie
   token = req.cookies.Authorization;
   if (!token) return res.sendStatus(403);
 
   //Verify the user by their json webtoken
   jwt.verify(token, 'secretkey', (err, data) => {
     if (err) {
-      //If the token validation is not successful don't proceed to do any other functions on that route, return only 403 status
+      //If the token validation is not successful do not proceed to execute the apprropriate
+      //route controller only return 403 status code
       res.sendStatus(403);
     } else {
-      //Do the rest of the request
+      //Fulfill the rest of the request
       next();
     }
   });
@@ -50,6 +53,8 @@ const protectRoutes = (req, res, next) => {
   }
 };
 
+/*Establishing CORS policy for the app to allow cross-origin requests, 
+i.e. requests from different ports, since sveltekit utilities run on different one */
 app.use(
   cors({
     origin: ['http://localhost:3000', 'http://localhost:5000'],
@@ -61,14 +66,13 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-//Before every request, make sure that the routes are protected by imPORTing the previously created middleware
+//Before every request, make sure that the routes are protected by imporitng the previously created middleware
 app.use(protectRoutes);
 
 //Integrate the routes from the module folder
 app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, multiSearch, raports]);
 
 const INVALID_CREDS_MESSAGE = 'Invalid login credentials';
-const PORT = 5000;
 
 app.post('/userlogin', async (req, response) => {
   //route responsible for authenticating the user
