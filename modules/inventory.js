@@ -2,7 +2,7 @@
 const express = require('express');
 const yup = require('yup');
 const pool = require('../db');
-const withParams = require('../functions/withParams');
+const { withParams } = require('../functions/withParams');
 const registerEvent = require('../functions/registerEvent');
 
 /*This is the router for the inventory module, it is similar to the app object in the back.js

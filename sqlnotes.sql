@@ -60,3 +60,16 @@ update problems
 set document_with_weights = setweight(to_tsvector(problems.problem_note), 'A') ||
   setweight(to_tsvector(coalesce(TO_CHAR(problems.hand_in_date :: DATE, 'dd/mm/yyyy'), '')), 'B') ||
   setweight(to_tsvector(coalesce(TO_CHAR(problems.deadline_date :: DATE, 'dd/mm/yyyy'), '')), 'B') 
+
+
+    ALTER TABLE history
+  ADD COLUMN document_with_weights tsvector;
+update history
+set document_with_weights = setweight(to_tsvector(history.details), 'A') ||
+setweight(to_tsvector(coalesce(TO_CHAR(history.at_time :: DATE, 'dd/mm/yyyy'), '')), 'C')
+
+
+  ALTER TABLE orders
+  ADD COLUMN document_with_weights tsvector;
+update orders
+set document_with_weights = setweight(to_tsvector(orders.name), 'B')

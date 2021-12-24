@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withParams = require('../functions/withParams');
+const { withParams } = require('../functions/withParams');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
@@ -32,7 +32,9 @@ router.get('/problems', async (req, res) => {
     LEFT JOIN clients ON (orders.client_id = clients.id)`,
     req.query.page,
     ` finished, ${req.query.sort_by} `,
-    req.query.sort_dir
+    req.query.sort_dir,
+    req.query.s,
+    ['problems', 'computers', 'clients']
   );
 
   pool.query(QS, async (err, qResults) => {
@@ -49,7 +51,7 @@ router.get('/problems/:id', async (req, res) => {
   //short for query string
   const QS = `SELECT 
   jsonb_build_object('value', computer_id, 'label', computers.name) as computer_obj,
-  problem_note, hand_in_date, deadline_date, problems.id as problem_id
+  problem_note, hand_in_date, deadline_date, problems.id as problem_id, finished
   FROM problems  JOIN computers ON (computer_id = computers.id) WHERE problems.id = $1;`;
 
   pool.query(QS, [req.params.id], async (err, qResults) => {
@@ -65,13 +67,13 @@ router.get('/problems/:id', async (req, res) => {
 
 router.post('/problems', async (req, res) => {
   //short for query string
-  const QS = 'INSERT INTO problems (computer_id, problem_note, hand_in_date, deadline_date) VALUES ($1, $2, $3, $4) RETURNING id';
+  const QS = 'INSERT INTO problems (computer_id, problem_note, hand_in_date, deadline_date, finished) VALUES ($1, $2, $3, $4, $5) RETURNING id';
   try {
-    await problemsAddSchema.validate(req.body);
     checkComputerExistance([req.body.computer_id])
       .then(() =>
         pool.query(QS, Object.values(req.body), (err, qResults) => {
           if (err) {
+            console.log(err)
             res.status(400).send(bodyErrror);
           } else {
             registerEvent(8, qResults.rows[0].id, req.body.problem_note);
@@ -89,10 +91,9 @@ router.post('/problems', async (req, res) => {
 });
 
 router.put('/problems/:id', async (req, res) => {
-  const QS = 'UPDATE problems SET computer_id = $1, problem_note = $2, hand_in_date = $3, deadline_date = $4 WHERE id = $5';
+  const QS = 'UPDATE problems SET computer_id = $1, problem_note = $2, hand_in_date = $3, deadline_date = $4, finished = $5 WHERE id = $6';
 
   try {
-    await problemsAddSchema.validate(req.body);
     pool.query(QS, [...Object.values(req.body), req.params.id], (err, qResults) => {
       if (err) {
         console.log('SQL problem ' + err);

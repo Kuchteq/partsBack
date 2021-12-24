@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withParams = require('../functions/withParams');
+const { withParams } = require('../functions/withParams');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
@@ -52,9 +52,12 @@ const computersUpdateSchema = yup.object().shape({
 
 router.get('/computers', async (req, res) => {
   'Here express will pull data from the database and return it in this form';
+  let sQuery = req.query.s ? `'${req.query.s.replaceAll(' ', '+')}'` : ''
 
-  const returnComputersQS = withParams('SELECT * FROM get_computers()', req.query.page, req.query.sort_by, req.query.sort_dir);
 
+  const returnComputersQS = withParams(`SELECT * FROM get_computers(${sQuery})`, req.query.page, req.query.sort_by, req.query.sort_dir);
+
+  console.log(returnComputersQS)
   pool.query(returnComputersQS, async (err, qResults) => {
     if (err) {
       console.log(err);
@@ -68,17 +71,17 @@ router.get('/computers', async (req, res) => {
 router.get('/computers/:id', async (req, res) => {
   'Here express will pull id individual data from the database and return it in this form';
 
-  const partsQS = `SELECT computer_pieces.id as piece_id, parts.id as part_id, parts.name as part_name, computer_pieces.quantity as quantity,  parts.price as price, 
-  jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj
+  const partsQS = `SELECT computer_pieces.id as piece_id, parts.id as part_id, parts.name as part_name, computer_pieces.quantity as quantity, parts.price as price,
+    jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj
   FROM computer_pieces JOIN parts on parts.id = computer_pieces.part_id JOIN computers on computers.id = computer_pieces.belonging_computer_id
   JOIN segments on segments.id = parts.segment_id
   WHERE computers.id = $1 ORDER BY segment_id`;
 
-  const compInfoQS = `SELECT computers.id as computer_id, computers.name as computer_name, SUM(parts.price) computer_value, 
-  computers.short_note as short_note,
-  TO_CHAR(computers.assembled_at :: DATE, 'dd/mm/yyyy hh:mm') AS assembled_at FROM computers
+  const compInfoQS = `SELECT computers.id as computer_id, computers.name as computer_name, SUM(parts.price) computer_value,
+    computers.short_note as short_note,
+    TO_CHAR(computers.assembled_at :: DATE, 'dd/mm/yyyy hh:mm') AS assembled_at FROM computers
   LEFT JOIN computer_pieces ON computer_pieces.belonging_computer_id = computers.id LEFT JOIN parts on parts.id = computer_pieces.part_id
-  WHERE computers.id = $1 GROUP BY computers.id;`;
+  WHERE computers.id = $1 GROUP BY computers.id; `;
   pool.query(compInfoQS, [req.params.id], async (err, q1Results) => {
     if (!err && q1Results.rows.length > 0)
       pool.query(partsQS, [req.params.id], async (err, q2Results) => {
@@ -184,10 +187,9 @@ router.put('/computers/:id', async (req, res) => {
 });
 
 router.delete('/computers/:id', async (req, res) => {
-  ('Here express will pull data from the database and return it in this form');
 
   const getPiecesQS = `SELECT computer_pieces.id as piece_id, computer_pieces.part_id as part_id, computer_pieces.quantity as quantity
-  FROM computer_pieces JOIN computers on computers.id = computer_pieces.belonging_computer_id WHERE computers.id = $1;`;
+  FROM computer_pieces JOIN computers on computers.id = computer_pieces.belonging_computer_id WHERE computers.id = $1; `;
 
   const deleteComputerQS = 'DELETE FROM computers WHERE id = $1 RETURNING name;';
   const deletePieceQS = 'DELETE FROM computer_pieces WHERE id = $1';

@@ -5,19 +5,22 @@ const pool = require('../db');
 const checkStock = require('../functions/stockChecker');
 const checkComputerExistance = require('../functions/computerChecker.js');
 const registerEvent = require('../functions/registerEvent');
-const withParams = require('../functions/withParams');
+const { withParams, onlySearch } = require('../functions/withParams');
 router.use(express.json());
 
 const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'Part added';
 
 router.get('/orders/:year/:month', (req, res) => {
-  const QS = `SELECT DISTINCT ON (orders.id) orders.id as order_id, clients.name as client_name, orders.name as order_name,
+  const QS = onlySearch(`SELECT orders.id as order_id, clients.name as client_name, orders.name as order_name,
     ARRAY_AGG(parts.name) as parts,  SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
     orders.sell_date as sell_date FROM orders  JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
     JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
-    WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2
-    GROUP BY orders.id, clients.name;`;
+    WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 `,
+    req.query.s, ['orders', 'parts'], 'AND (',
+    `${req.query.s ? ')' : ''} GROUP BY orders.id, clients.name ORDER BY ${req.query.sort_by} ${req.query.sort_dir}`)
+
+  console.log(QS)
 
   pool.query(QS, [req.params.year, req.params.month], (err, qResults) => {
     if (err) {
@@ -29,20 +32,7 @@ router.get('/orders/:year/:month', (req, res) => {
   });
 });
 
-router.get('/orders/:id', (req, res) => {
-  const onlyOrderDetailsQS = `SELECT client_id, clients.name as client_name, sell_date, orders.name as order_name,
-    SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
-    sum(order_chunks.sell_price) as sold_at
-    FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
-    JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
-    WHERE orders.id = $1
-    GROUP BY client_id, client_name, sell_date, order_name`;
-
-  const orderChunksQS = `SELECT part_id, parts.name as part_name, parts.price as part_price, order_chunks.sell_price as sold_at,
-    order_chunks.quantity as quantity
-    FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
-    JOIN parts ON order_chunks.part_id = parts.id
-    WHERE orders.id = $1;`;
+router.get('fdasgsdgasdgsd', (req, res) => {
 
   pool.query(onlyOrderDetailsQS, [req.params.id], (err, q1Results) => {
     if (err) {
@@ -61,7 +51,68 @@ router.get('/orders/:id', (req, res) => {
       });
     }
   });
+})
+router.get('/orders-basic/:id', (req, res) => {
+
+
+  const orderBasicInfo = `SELECT orders.name as name, jsonb_build_object('value', clients.id, 'label', clients.name) as client_obj, sell_date 
+  FROM orders JOIN clients ON orders.client_id = clients.id WHERE orders.id = $1`
+
+
+  const onlyOrderDetailsQS = `SELECT client_id, clients.name as client_name, sell_date, orders.name as order_name,
+    SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
+    sum(order_chunks.sell_price) as sold_at
+    FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
+    JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
+    WHERE orders.id = $1
+    GROUP BY client_id, client_name, sell_date, order_name`;
+
+  const orderChunksQS = `SELECT part_id, parts.name as part_name, parts.price as part_price, order_chunks.sell_price as sold_at,
+    order_chunks.quantity as quantity
+    FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
+    JOIN parts ON order_chunks.part_id = parts.id
+    WHERE orders.id = $1;`;
+  pool.query(orderBasicInfo, [req.params.id], (err, q1Results) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      let orderInfo = q1Results.rows[0];
+      res.status(200).send(orderInfo);
+    }
+  });
 });
+
+router.get('/orders-chunks/:id', (req, res) => {
+
+  const orderPartChunksQS = `SELECT part_id, order_chunks.sell_price as sold_at,
+    order_chunks.quantity as quantity
+    FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
+    WHERE orders.id = $1 AND order_chunks.computer_id IS NULL;`;
+
+  const orderCompChunksQS = `SELECT computer_id, order_chunks.sell_price as sold_at
+  FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
+  WHERE orders.id = $1 AND order_chunks.computer_id IS NOT NULL;`;
+
+  pool.query(orderPartChunksQS, [req.params.id], (err, q1Results) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      let partsInfo = q1Results.rows;
+      pool.query(orderCompChunksQS, [req.params.id], (err, q2Results) => {
+        if (err) {
+          console.log(err);
+          res.status(400).send(bodyErrror);
+        } else {
+          let compsInfo = q2Results.rows;
+          res.status(200).send({ partsInfo, compsInfo });
+        }
+      })
+    }
+  });
+})
+
 
 router.post('/orders', async (req, res) => {
   'In the options the individual ids of parts will be passed for the backend to delete;';
@@ -75,7 +126,6 @@ router.post('/orders', async (req, res) => {
   const subtractPartStockQS = 'UPDATE parts SET stock = stock - $1 WHERE id = $2';
 
   let computersToCheck = [];
-
   computers.forEach(computer => {
     computersToCheck.push(computer.computer_id);
   });
@@ -112,6 +162,39 @@ router.post('/orders', async (req, res) => {
       res.status(406).send(err);
     });
 });
+
+router.put('/orders/:id', async (req, res) => {
+  const parts = req.body.parts;
+  const computers = req.body.computers;
+
+
+  let toPassString = '';
+  parts.forEach(part => {
+
+    toPassString += `(${part.quantity}, ${part.part_id}),`;
+  });
+  toPassString = toPassString.slice(0, -1);
+
+  console.log(toPassString)
+  const addPartStockQS = `update parts p set stock = p.stock + s.stock
+    from unnest(array[${toPassString}]) s (stock int, id int) where p.id = s.id`
+
+
+  pool.query(addPartStockQS).then((q1Results, err) => {
+    console.log(q1Results);
+
+  })
+
+
+  let computersToCheck = [];
+  computers.forEach(computer => {
+    computersToCheck.push(computer.computer_id);
+  });
+
+
+  console.log(req.body)
+
+})
 
 router.get('/orders-span/:from/:to', async (req, res) => {
   const { from, to } = req.params;

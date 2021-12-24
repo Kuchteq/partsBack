@@ -18,20 +18,25 @@ const withParams = (string, page, sort_by, sort_dir = 'ASC', sQuery, dbprefixes)
   //If the requested page is not the first one, start from the higher position
   const startIndex = (intPage - 1) * limit;
 
-  let constructedQuery = '';
-
   //If the client has requested to filter the data by a specific search parameter
+
+  return `${onlySearch(string, sQuery, dbprefixes)} ORDER BY ${sort_by} ${sort_dir} OFFSET ${startIndex} LIMIT ${limit}`;
+};
+
+const onlySearch = (string, sQuery, dbprefixes, prefix = 'WHERE ', suffix = '') => {
+  /* Function used to modify query by adding the functionality
+  of filtering the data based on the search parameter - sQuery
+   */
+  let constructedQuery = ''
   if (sQuery) {
     sQuery = sQuery.replace(' ', '+');
-    constructedQuery = 'WHERE ';
+    constructedQuery = prefix;
     dbprefixes.forEach((prefix, i) => {
       constructedQuery += `${prefix}.document_with_weights @@ to_tsquery('"${sQuery}":*')`;
       if (i < dbprefixes.length - 1) constructedQuery += ' OR ';
     });
-    sort_by = `ts_rank(${dbprefixes[0]}.document_with_weights, to_tsquery('"${sQuery}":*'))`;
   }
 
-  return `${string} ${constructedQuery} ORDER BY ${sort_by} ${sort_dir} OFFSET ${startIndex} LIMIT ${limit}`;
-};
-
-module.exports = withParams;
+  return `${string} ${constructedQuery} ${suffix}`;
+}
+module.exports = { withParams, onlySearch };

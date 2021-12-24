@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const withParams = require('../functions/withParams');
+const { withParams } = require('../functions/withParams');
 
 router.use(express.json());
 
@@ -16,7 +16,9 @@ router.get('/history', async (req, res) => {
     LEFT JOIN action_types on (history.action_id = action_types.id) `,
     req.query.page,
     req.query.sort_by,
-    req.query.sort_dir
+    req.query.sort_dir,
+    req.query.s,
+    ['history', 'action_types']
   );
 
   pool.query(QS, async (err, qResults) => {

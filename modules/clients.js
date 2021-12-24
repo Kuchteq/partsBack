@@ -2,7 +2,7 @@ const express = require('express');
 const yup = require('yup');
 const router = express.Router();
 const pool = require('../db');
-const withParams = require('../functions/withParams');
+const { withParams, onlySearch } = require('../functions/withParams');
 const registerEvent = require('../functions/registerEvent');
 
 router.use(express.json());
@@ -25,21 +25,21 @@ router.get('/clients', async (req, res) => {
 
   //short for query string
 
-  const insideQS = `SELECT DISTINCT ON (clients.id) clients.id as client_id, clients.name as client_name, join_date, email, phone, 
+  const insideQS = onlySearch(`SELECT DISTINCT ON (clients.id) clients.id as client_id, clients.name as client_name, join_date, email, phone, 
   adress, nip, clients.short_note as client_short_note, parts.name as last_purchased_part, 
   orders.sell_date as last_sold_date FROM clients
   LEFT JOIN orders ON orders.id = clients.id
   LEFT JOIN order_chunks ON order_chunks.id = orders.client_id
   LEFT JOIN parts ON parts.id = order_chunks.part_id  
-  ORDER BY clients.id, orders.sell_date DESC`;
+  `, req.query.s, ['clients', 'parts']);
 
   const wholeQS = withParams(
-    `WITH distinctClients AS (${insideQS}) SELECT client_id, client_name, TO_CHAR(join_date :: DATE, 'dd/mm/yyyy') 
+    `WITH distinctClients AS (${insideQS} ORDER BY clients.id, orders.sell_date DESC) SELECT client_id, client_name, TO_CHAR(join_date :: DATE, 'dd/mm/yyyy') 
     as join_date, phone, email, adress, nip, client_short_note, last_purchased_part, 
     TO_CHAR(last_sold_date :: DATE, 'dd/mm/yyyy') as last_sold_date FROM distinctClients`,
     req.query.page,
     req.query.sort_by,
-    req.query.sort_dir
+    req.query.sort_dir,
   );
 
   pool.query(wholeQS, async (err, qResults) => {
