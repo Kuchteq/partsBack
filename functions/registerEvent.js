@@ -20,6 +20,7 @@ const pool = require('../db');
     15 - Supplier added {supplier_name}
     16 - Supplier modified {supplier_name}
     17 - Supplier deleted {supplier_name}
+    18 - Order modified
 `;
 
 const registerEvent = (action_id, target_id, target_value) => {

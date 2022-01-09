@@ -66,7 +66,6 @@ router.get('/inventory/:id', async (req, res) => {
       console.log(err);
       res.status(400).send(BODY_ERROR);
     } else {
-      console.log(qResults.rows[0]);
       res.status(200).send(qResults.rows[0]);
     }
   });

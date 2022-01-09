@@ -72,7 +72,6 @@ router.post('/clients/', async (req, res) => {
 
   const QS = `INSERT INTO clients (name, phone, email,
       adress, nip, short_note, join_date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`;
-  console.log(req.body);
   try {
     await clientsSchema.validate(req.body);
     pool.query(QS, Object.values(req.body), (err, qResults) => {

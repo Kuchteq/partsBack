@@ -20,7 +20,6 @@ router.get('/orders/:year/:month', (req, res) => {
     req.query.s, ['orders', 'parts'], 'AND (',
     `${req.query.s ? ')' : ''} GROUP BY orders.id, clients.name ORDER BY ${req.query.sort_by} ${req.query.sort_dir}`)
 
-  console.log(QS)
 
   pool.query(QS, [req.params.year, req.params.month], (err, qResults) => {
     if (err) {
@@ -32,46 +31,11 @@ router.get('/orders/:year/:month', (req, res) => {
   });
 });
 
-router.get('fdasgsdgasdgsd', (req, res) => {
-
-  pool.query(onlyOrderDetailsQS, [req.params.id], (err, q1Results) => {
-    if (err) {
-      console.log(err);
-      res.status(400).send(bodyErrror);
-    } else {
-      pool.query(orderChunksQS, [req.params.id], (err, q2Results) => {
-        if (err) {
-          console.log(err);
-          res.status(400).send(bodyErrror);
-        } else {
-          let orderInfo = q1Results.rows[0];
-          Object.assign(orderInfo, { orderPieces: q2Results.rows });
-          res.status(200).send(orderInfo);
-        }
-      });
-    }
-  });
-})
 router.get('/orders-basic/:id', (req, res) => {
-
 
   const orderBasicInfo = `SELECT orders.name as name, jsonb_build_object('value', clients.id, 'label', clients.name) as client_obj, sell_date 
   FROM orders JOIN clients ON orders.client_id = clients.id WHERE orders.id = $1`
 
-
-  const onlyOrderDetailsQS = `SELECT client_id, clients.name as client_name, sell_date, orders.name as order_name,
-    SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
-    sum(order_chunks.sell_price) as sold_at
-    FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
-    JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
-    WHERE orders.id = $1
-    GROUP BY client_id, client_name, sell_date, order_name`;
-
-  const orderChunksQS = `SELECT part_id, parts.name as part_name, parts.price as part_price, order_chunks.sell_price as sold_at,
-    order_chunks.quantity as quantity
-    FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
-    JOIN parts ON order_chunks.part_id = parts.id
-    WHERE orders.id = $1;`;
   pool.query(orderBasicInfo, [req.params.id], (err, q1Results) => {
     if (err) {
       console.log(err);
@@ -149,7 +113,6 @@ router.post('/orders', async (req, res) => {
               res.status(200).send('Order created');
               registerEvent(3, newOrderId, req.body.name);
             } else {
-              console.log('SQL problem ' + err);
               res.status(406).send(bodyErrror);
             }
           })
@@ -163,38 +126,68 @@ router.post('/orders', async (req, res) => {
     });
 });
 
+
+const returnPartsStock = `UPDATE parts SET stock = parts.stock + order_chunks.quantity
+  FROM order_chunks WHERE order_chunks.belonging_order_id IN ($1)`
+
+const deletePartChunk = `DELETE FROM order_chunks WHERE belonging_order_id IN($1)`;
+const deleteOrder = `DELETE FROM orders WHERE id IN($1)`;
+
+router.delete('/orders/:id', async (req, res) => {
+  let promises = []
+  const deleteComputerChunk = req.body.computers && req.body.computers.length > 0 ? `DELETE FROM order_chunks WHERE belonging_order_id IN($1)` : 'SELECT $1';
+
+  const list = [returnPartsStock, deletePartChunk, deleteComputerChunk, deleteOrder]
+  list.forEach(query => {
+    promises.push(new Promise((resolve, reject) => {
+      pool.query(query, [req.params.id]).then(() => {
+        resolve();
+      })
+    }))
+  })
+  Promise.all(promises).then(data => {
+    res.status(200).send('Successfuly deleted part');
+  })
+})
+
+
 router.put('/orders/:id', async (req, res) => {
   const parts = req.body.parts;
   const computers = req.body.computers;
+  const id = req.params.id;
 
-
-  let toPassString = '';
-  parts.forEach(part => {
-
-    toPassString += `(${part.quantity}, ${part.part_id}),`;
-  });
-  toPassString = toPassString.slice(0, -1);
-
-  console.log(toPassString)
-  const addPartStockQS = `update parts p set stock = p.stock + s.stock
-    from unnest(array[${toPassString}]) s (stock int, id int) where p.id = s.id`
-
-
-  pool.query(addPartStockQS).then((q1Results, err) => {
-    console.log(q1Results);
-
-  })
-
+  const createPartChunkQS = 'INSERT INTO order_chunks (part_id, sell_price, quantity, belonging_order_id) VALUES ($1, $2, $3, $4);';
+  const createComputerChunkQS = 'INSERT INTO order_chunks (computer_id, sell_price, quantity, belonging_order_id) VALUES ($1, $2, $3, $4);';
+  const subtractPartStockQS = 'UPDATE parts SET stock = stock - $1 WHERE id = $2';
 
   let computersToCheck = [];
   computers.forEach(computer => {
     computersToCheck.push(computer.computer_id);
   });
+  const deleteComputerChunk = computers && computers.length > 0 ? `DELETE FROM order_chunks WHERE belonging_order_id IN($1)` : 'SELECT $1';
 
 
-  console.log(req.body)
+  pool.query('BEGIN').then(async () => {
+    //sorry for code repetition but the rollback doesn't work with outside functions making the query
+    await pool.query(returnPartsStock, [id])
+    await pool.query(deletePartChunk, [id])
+    await pool.query(deleteComputerChunk, [id])
+    for (const chunk of parts) {
+      await pool.query(createPartChunkQS, [chunk.part_id, chunk.sell_price, chunk.quantity, id]).catch(err => console.log(err));
+      //subtract approriate amount from stock
+      await pool.query(subtractPartStockQS, [chunk.quantity, chunk.part_id]);
+    }
+    for (const chunk of computers) {
+      await pool
+        .query(createComputerChunkQS, [chunk.computer_id, chunk.sell_price, chunk.quantity, id])
+        .catch(err => console.log(err));
+    }
+    await pool.query('COMMIT')
+    await res.send('ok')
 
+  })
 })
+
 
 router.get('/orders-span/:from/:to', async (req, res) => {
   const { from, to } = req.params;
@@ -208,7 +201,6 @@ router.get('/orders-span/:from/:to', async (req, res) => {
     req.query.sort_by,
     req.query.sort_dir
   );
-  console.log(QS)
   pool.query(QS, [from, to], (err, qResults) => {
     if (err) {
       console.log(err);

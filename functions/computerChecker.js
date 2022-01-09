@@ -4,7 +4,7 @@ const checkComputerExistance = ids => {
   return new Promise((resolve, reject) => {
     //first argument are the ids second is the amount you want to subtract
     if (ids.length == 0) {
-      resolve('Only parts order');
+      resolve('Only parts');
       return;
     }
     ids.every(id =>
