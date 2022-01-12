@@ -123,6 +123,8 @@ router.post('/orders', async (req, res) => {
     )
     .catch(err => {
       res.status(406).send(err);
+    }).catch(err => {
+      res.status(406).send(err);
     });
 });
 
