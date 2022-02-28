@@ -212,4 +212,27 @@ router.get('/orders-span/:from/:to', async (req, res) => {
     }
   });
 })
+
+
+router.get('/orders-clients/:client', async (req, res) => {
+
+  const QS = withParams(`SELECT DISTINCT ON (orders.id) orders.id as order_id, clients.name as client_name, orders.name as order_name,
+    ARRAY_AGG(parts.name) as parts,  SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
+    orders.sell_date as sell_date FROM orders  JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
+    JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
+    WHERE clients.id = $1
+    GROUP BY orders.id, clients.name`, req.query.page,
+    req.query.sort_by,
+    req.query.sort_dir
+  );
+  pool.query(QS, [req.params.client], (err, qResults) => {
+    if (err) {
+      console.log(err);
+      res.status(400).send(bodyErrror);
+    } else {
+      res.status(200).send(qResults.rows);
+    }
+  });
+})
+
 module.exports = router;
