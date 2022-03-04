@@ -1003,6 +1003,34 @@ COPY public.problems (id, computer_id, problem_note, hand_in_date, deadline_date
 --
 
 COPY public.segments (id, name) FROM stdin;
+1	Processor
+2	Motherboard
+3	Graphics Card
+4	RAM
+5	HDD Storage
+6	SSD Storage
+7	Power Supply
+8	Cooling
+9	Computer case
+10	Sound card
+11	Monitor
+12	Network card
+13	Mouse
+14	Keyboard
+15	Printer
+16	Printer Ink
+17	Speakers
+18	Microphone
+19	Router
+20	Webcam
+21	License
+22	Bluetooth Module
+23	Tablet
+24	Phone
+25	TV
+26	Projectors
+27	Drawing Tablet
+28	Misc
 \.
 
 
