@@ -26,9 +26,6 @@ const PARTS_ADD_SCHEMA = yup.object().shape({
   purchase_date: yup.date().required(),
 });
 
-pool.query(`SELECT id as value, '(_=>_("'||name||'")' as label FROM segments`, (err, res) => {
-  console.log(res.rows)
-})
 router.get('/inventory', async (req, res) => {
   //This route controller is for getting the list of 20 parts from the database
 
