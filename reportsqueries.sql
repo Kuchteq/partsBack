@@ -15,7 +15,7 @@ WITH all_sale_dets AS (SELECT DISTINCT ON (orders.id) SUM(order_chunks.quantity)
 	CAST(SUM(new_clients.count)/10 AS INT) as new_clients_amount
 	FROM new_clients, all_sale_dets
 
-'For raporting every segment'
+'For reporting every segment'
 const saltRounds = 10;
 SELECT segments.name as segment_name, SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, 
 	sum(order_chunks.sell_price - parts.price) as profit
@@ -27,7 +27,7 @@ SELECT segments.name as segment_name, SUM(order_chunks.quantity) as items_amount
     WHERE EXTRACT(YEAR FROM orders.sell_date) = '2021' AND EXTRACT(MONTH FROM orders.sell_date) = '10'
     GROUP BY segments.name
 
-'For raporting individual days' 
+'For reporting individual days' 
 
 SELECT DATE_TRUNC('day', orders.sell_date), SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, 
 	sum(order_chunks.sell_price - parts.price) as profit
@@ -38,7 +38,7 @@ SELECT DATE_TRUNC('day', orders.sell_date), SUM(order_chunks.quantity) as items_
     WHERE EXTRACT(YEAR FROM orders.sell_date) = '2021' AND EXTRACT(MONTH FROM orders.sell_date) = '10'
     GROUP BY DATE_TRUNC('day', orders.sell_date)
 
-'For raporting individual months'
+'For reporting individual months'
 	
 	SELECT DATE_TRUNC('month', orders.sell_date), SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, 
 	sum(order_chunks.sell_price - parts.price) as profit
@@ -49,7 +49,7 @@ SELECT DATE_TRUNC('day', orders.sell_date), SUM(order_chunks.quantity) as items_
     WHERE EXTRACT(YEAR FROM orders.sell_date) = '2021' AND EXTRACT(MONTH FROM orders.sell_date) IN ('10', '9','8')
     GROUP BY DATE_TRUNC('month', orders.sell_date)
 
-'For raporting individual clients'
+'For reporting individual clients'
 
 SELECT clients.name, SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, 
 	sum(order_chunks.sell_price - parts.price) as profit

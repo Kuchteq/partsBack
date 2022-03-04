@@ -15,7 +15,7 @@ const computers = require('./modules/computers');
 const problems = require('./modules/problems');
 const history = require('./modules/history');
 const orders = require('./modules/orders');
-const raports = require('./modules/raports');
+const reports = require('./modules/reports');
 const multiSearch = require('./modules/multiSearch');
 
 /*
@@ -70,7 +70,7 @@ app.use(cookieParser());
 app.use(protectRoutes);
 
 //Integrate the routes from the module folder
-app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, multiSearch, raports]);
+app.use('/', [computers, inventory, suppliers, clients, problems, history, orders, multiSearch, reports]);
 
 const INVALID_CREDS_MESSAGE = 'Invalid login credentials';
 

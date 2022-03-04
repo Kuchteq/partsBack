@@ -1,4 +1,4 @@
-const withParams = (string, page, sort_by, sort_dir = 'ASC', sQuery, dbprefixes) => {
+const withParams = (string, page, sort_by, sort_dir = 'ASC', sQuery, dbprefixes, conditions) => {
   /* Function used to modify query by adding the functionality
   of sorting the data and filtering it based on the search parameter - sQuery
    */
@@ -20,20 +20,28 @@ const withParams = (string, page, sort_by, sort_dir = 'ASC', sQuery, dbprefixes)
 
   //If the client has requested to filter the data by a specific search parameter
 
-  return `${onlySearch(string, sQuery, dbprefixes)} ORDER BY ${sort_by} ${sort_dir} OFFSET ${startIndex} LIMIT ${limit}`;
+  return `${onlySearch(string, sQuery, dbprefixes, conditions)} ORDER BY ${sort_by} ${sort_dir} OFFSET ${startIndex} LIMIT ${limit}`;
 };
 
-const onlySearch = (string, sQuery, dbprefixes, prefix = 'WHERE ', suffix = '') => {
+const onlySearch = (string, sQuery, dbprefixes, conditions = "", prefix = 'WHERE ', suffix = '') => {
   /* Function used to modify query by adding the functionality
   of filtering the data based on the search parameter - sQuery
    */
   let constructedQuery = ''
+  if (conditions && sQuery) {
+    constructedQuery = prefix + conditions + " AND (";
+  }
+  else if (conditions && !sQuery) {
+    constructedQuery = prefix + "(" + conditions + ")";
+  }
+  else if (!conditions && sQuery) {
+    constructedQuery = prefix + "(";
+  }
   if (sQuery) {
     sQuery = sQuery.replace(' ', '+');
-    constructedQuery = prefix;
     dbprefixes.forEach((prefix, i) => {
       constructedQuery += `${prefix}.document_with_weights @@ to_tsquery('"${sQuery}":*')`;
-      if (i < dbprefixes.length - 1) constructedQuery += ' OR ';
+      if (i < dbprefixes.length - 1) { constructedQuery += ' OR ' } else constructedQuery += ' ) ';
     });
   }
 

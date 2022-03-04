@@ -28,9 +28,9 @@ router.get('/clients', async (req, res) => {
   const insideQS = onlySearch(`SELECT DISTINCT ON (clients.id) clients.id as client_id, clients.name as client_name, join_date, email, phone, 
   adress, nip, clients.short_note as client_short_note, parts.name as last_purchased_part, 
   orders.sell_date as last_sold_date FROM clients
-  LEFT JOIN orders ON orders.id = clients.id
-  LEFT JOIN order_chunks ON order_chunks.id = orders.client_id
-  LEFT JOIN parts ON parts.id = order_chunks.part_id  
+  LEFT JOIN orders ON orders.client_id = clients.id
+  LEFT JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
+  LEFT JOIN parts ON parts.id = order_chunks.part_id
   `, req.query.s, ['clients', 'parts']);
 
   const wholeQS = withParams(

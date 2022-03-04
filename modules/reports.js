@@ -6,7 +6,7 @@ router.use(express.json());
 const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'Part added';
 
-router.get('/getraport/:from/:to', async (req, res) => {
+router.get('/getreport/:from/:to', async (req, res) => {
   let { from, to } = req.params;
   let fullResponse = {};
   from = from.replaceAll('-', '/');

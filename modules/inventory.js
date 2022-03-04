@@ -31,14 +31,15 @@ router.get('/inventory', async (req, res) => {
 
   /* short for query string, this is the query asked to the database, the with params function
    is to modify the query and add sorting and filtering functionality and restrict the amount of asked records*/
+  let conditions = req.query.past == 'true' ? undefined : 'parts.stock > 0'
   const QS = withParams(
     `SELECT parts.id as part_id, segments.name as segments_name, parts.name as part_name, parts.stock, 
-    trim_scale(parts.price), parts.short_note, suppliers.name as suppliers_name,
+    trim_scale(parts.price) as price, parts.short_note, suppliers.name as suppliers_name, parts.suggested_price as suggested_price,
     TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') AS purchase_date FROM parts 
     LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) LEFT JOIN segments ON (parts.segment_id = segments.id)`,
-    req.query.page, req.query.sort_by, req.query.sort_dir, req.query.s, ['parts']
+    req.query.page, req.query.sort_by, req.query.sort_dir, req.query.s, ['parts'], conditions
   );
-
+  console.log(QS);
   //pool is the connection to the database, QS is the query string, values is the values to be inserted to the query
   pool.query(QS, async (err, qResults) => {
     if (err) {
@@ -56,9 +57,9 @@ router.get('/inventory/:id', async (req, res) => {
 
   //short for query string, this is the query asked to the database
   const QS = `SELECT segments.id as segment_id, parts.name as part_name, parts.stock as stock, parts.price, 
-  parts.short_note, purchase_date, jsonb_build_object('value', suppliers.id, 'label', suppliers.name) as supplier_obj,
-  jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj, parts.id as part_id FROM parts 
-    LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
+  parts.short_note, purchase_date, jsonb_build_object('value', suppliers.id, 'label', suppliers.name) as supplier_obj, 
+  parts.suggested_price as suggested_price, jsonb_build_object('value', segments.id, 'label', segments.name) as segment_obj, 
+  parts.id as part_id FROM parts LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) 
     LEFT JOIN segments ON (parts.segment_id = segments.id) WHERE parts.id = $1;`;
 
   pool.query(QS, [req.params.id], async (err, qResults) => {
@@ -74,8 +75,8 @@ router.get('/inventory/:id', async (req, res) => {
 router.post('/inventory', async (req, res) => {
   //This route controller is for adding a new part to the database
 
-  const QS = `INSERT INTO parts (segment_id, name, stock, price, supplier_id, short_note, purchase_date)
-   VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;`;
+  const QS = `INSERT INTO parts (segment_id, name, stock, price, supplier_id, short_note, suggested_price, purchase_date)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;`;
 
   try {
     await PARTS_ADD_SCHEMA.validate(req.body);
@@ -99,7 +100,7 @@ router.put('/inventory/:id', async (req, res) => {
   //This route controller is for updating a part in the database
 
   const QS = `UPDATE parts SET segment_id = $1, name = $2, stock = $3, price = $4, supplier_id = $5,
-  short_note = $6, purchase_date = $7 WHERE id = $8 RETURNING id`;
+  short_note = $6, suggested_price = $7, purchase_date = $8 WHERE id = $9 RETURNING id`;
 
   try {
     await PARTS_ADD_SCHEMA.validate(req.body);

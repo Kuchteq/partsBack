@@ -12,50 +12,15 @@ router.use(express.json());
 const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'computer added';
 
-const computersSchema = yup.object().shape({
-  computer_name: yup.string().required(),
-  assembled_at: yup.date().required(),
-  pieces: yup
-    .array()
-    .of(
-      yup.object().shape({
-        part_id: yup.number().required(),
-        quantity: yup.number().required(),
-      })
-    )
-    .required(),
-});
-const computersUpdateSchema = yup.object().shape({
-  computer_name: yup.string().required(),
-  assembled_at: yup.date().required(),
-  pieces: yup
-    .array()
-    .of(
-      yup.object().shape({
-        part_id: yup.number().required(),
-        quantity: yup.number().required(),
-      })
-    )
-    .required(),
-  pieces_update: yup
-    .array()
-    .of(
-      yup.object().shape({
-        piece_id: yup.number().required(),
-        part_id: yup.number().required(),
-        quantity_difference: yup.number().required(),
-        to_delete: yup.boolean().required(),
-      })
-    )
-    .required(),
-});
+
 
 router.get('/computers', async (req, res) => {
   'Here express will pull data from the database and return it in this form';
   let sQuery = req.query.s ? `'${req.query.s.replaceAll(' ', '+')}'` : ''
 
 
-  const returnComputersQS = withParams(`SELECT * FROM get_computers(${sQuery})`, req.query.page, req.query.sort_by, req.query.sort_dir);
+  const returnComputersQS = withParams(`SELECT * FROM ${req.query.past == "true" ? "get_computers_all" : "get_computers"}(${sQuery})`,
+    req.query.page, req.query.sort_by, req.query.sort_dir);
 
   console.log(returnComputersQS)
   pool.query(returnComputersQS, async (err, qResults) => {

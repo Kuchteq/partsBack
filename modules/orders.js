@@ -12,15 +12,21 @@ const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'Part added';
 
 router.get('/orders/:year/:month', (req, res) => {
-  const QS = onlySearch(`SELECT orders.id as order_id, clients.name as client_name, orders.name as order_name,
-    ARRAY_AGG(parts.name) as parts,  SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
-    orders.sell_date as sell_date FROM orders  JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
-    JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
-    WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 `,
-    req.query.s, ['orders', 'parts'], 'AND (',
+  const QS = onlySearch(`WITH compinfo AS (SELECT orders.id as id, SUM(parts.price) AS value FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
+  JOIN computers ON order_chunks.computer_id = computers.id JOIN computer_pieces on computers.id = computer_pieces.belonging_computer_id INNER JOIN parts ON
+  computer_pieces.part_id = parts.id WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 GROUP BY orders.id, computers.name)
+SELECT orders.id as order_id, clients.name as client_name, orders.name as order_name,
+ARRAY_REMOVE(ARRAY_CAT(ARRAY_AGG(parts.name),ARRAY_AGG(computers.name)),NULL) as parts,  SUM(order_chunks.quantity) as items_amount, 
+COALESCE(SUM(parts.price),0)+COALESCE(SUM(compinfo.value),0) as items_value, 
+SUM(order_chunks.sell_price) - COALESCE(SUM(parts.price),0)-COALESCE(SUM(compinfo.value),0) as profit,orders.sell_date as sell_date FROM orders  
+JOIN order_chunks ON order_chunks.belonging_order_id = orders.id  LEFT JOIN computers on order_chunks.computer_id = computers.id
+LEFT JOIN compinfo ON compinfo.id = orders.id JOIN clients ON orders.client_id = clients.id  LEFT JOIN parts ON order_chunks.part_id = parts.id  
+WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 `,
+    req.query.s, ['orders', 'parts', 'clients', 'computers'], null, 'AND (',
     `${req.query.s ? ')' : ''} GROUP BY orders.id, clients.name ORDER BY ${req.query.sort_by} ${req.query.sort_dir}`)
 
 
+  console.log(QS)
   pool.query(QS, [req.params.year, req.params.month], (err, qResults) => {
     if (err) {
       console.log(err);
@@ -193,8 +199,7 @@ router.put('/orders/:id', async (req, res) => {
 
 router.get('/orders-span/:from/:to', async (req, res) => {
   const { from, to } = req.params;
-
-  const QS = withParams(`SELECT DISTINCT ON (orders.id) orders.id as order_id, clients.name as client_name, orders.name as order_name,
+  const QS = withParams(`SELECT  orders.id as order_id, clients.name as client_name, orders.name as order_name,
     ARRAY_AGG(parts.name) as parts,  SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
     orders.sell_date as sell_date FROM orders  JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
     JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
@@ -216,12 +221,12 @@ router.get('/orders-span/:from/:to', async (req, res) => {
 
 router.get('/orders-clients/:client', async (req, res) => {
 
-  const QS = withParams(`SELECT DISTINCT ON (orders.id) orders.id as order_id, clients.name as client_name, orders.name as order_name,
+  const QS = withParams(`SELECT orders.id as order_id, clients.name as client_name, orders.name as order_name,
     ARRAY_AGG(parts.name) as parts,  SUM(order_chunks.quantity) as items_amount, SUM(parts.price) as items_value, sum(order_chunks.sell_price - parts.price) as profit,
     orders.sell_date as sell_date FROM orders  JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
     JOIN clients ON orders.client_id = clients.id  JOIN parts ON order_chunks.part_id = parts.id 
     WHERE clients.id = $1
-    GROUP BY orders.id, clients.name`, req.query.page,
+    GROUP BY orders.id, clients.name `, req.query.page,
     req.query.sort_by,
     req.query.sort_dir
   );
