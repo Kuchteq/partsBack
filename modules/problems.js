@@ -59,7 +59,6 @@ router.get('/problems/:id', async (req, res) => {
       console.log(err);
       res.status(400).send(bodyErrror);
     } else {
-      console.log(qResults.rows[0]);
       res.status(200).send(qResults.rows[0]);
     }
   });

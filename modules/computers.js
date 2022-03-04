@@ -22,7 +22,6 @@ router.get('/computers', async (req, res) => {
   const returnComputersQS = withParams(`SELECT * FROM ${req.query.past == "true" ? "get_computers_all" : "get_computers"}(${sQuery})`,
     req.query.page, req.query.sort_by, req.query.sort_dir);
 
-  console.log(returnComputersQS)
   pool.query(returnComputersQS, async (err, qResults) => {
     if (err) {
       console.log(err);

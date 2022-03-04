@@ -26,6 +26,9 @@ const PARTS_ADD_SCHEMA = yup.object().shape({
   purchase_date: yup.date().required(),
 });
 
+pool.query(`SELECT id as value, '(_=>_("'||name||'")' as label FROM segments`, (err, res) => {
+  console.log(res.rows)
+})
 router.get('/inventory', async (req, res) => {
   //This route controller is for getting the list of 20 parts from the database
 
@@ -39,7 +42,6 @@ router.get('/inventory', async (req, res) => {
     LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) LEFT JOIN segments ON (parts.segment_id = segments.id)`,
     req.query.page, req.query.sort_by, req.query.sort_dir, req.query.s, ['parts'], conditions
   );
-  console.log(QS);
   //pool is the connection to the database, QS is the query string, values is the values to be inserted to the query
   pool.query(QS, async (err, qResults) => {
     if (err) {

@@ -93,7 +93,6 @@ FROM suppliers JOIN parts ON suppliers.id = parts.supplier_id WHERE parts.purcha
   try {
     const generalInfoResult = await pool.query(generalInfo, [from, to]);
     fullResponse.generalInfo = generalInfoResult.rows[0];
-    console.log(generalInfoResult.rows[0])
     const byMonthInfoResult = await pool.query(byMonthInfo, [from, to]);
     fullResponse.byMonthInfo = byMonthInfoResult.rows;
     const byWeekInfoResult = await pool.query(byWeekInfo, [from, to]);
