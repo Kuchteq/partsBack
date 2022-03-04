@@ -17,8 +17,8 @@ router.get('/orders/:year/:month', (req, res) => {
   computer_pieces.part_id = parts.id WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 GROUP BY orders.id, computers.name)
 SELECT orders.id as order_id, clients.name as client_name, orders.name as order_name,
 ARRAY_REMOVE(ARRAY_CAT(ARRAY_AGG(parts.name),ARRAY_AGG(computers.name)),NULL) as parts,  SUM(order_chunks.quantity) as items_amount, 
-COALESCE(SUM(parts.price),0)+COALESCE(SUM(compinfo.value),0) as items_value, 
-SUM(order_chunks.sell_price) - COALESCE(SUM(parts.price),0)-COALESCE(SUM(compinfo.value),0) as profit,orders.sell_date as sell_date FROM orders  
+COALESCE(SUM(parts.price*order_chunks.quantity),0)+COALESCE(SUM(compinfo.value),0) as items_value, 
+SUM(order_chunks.sell_price*order_chunks.quantity) - COALESCE(SUM(parts.price*order_chunks.quantity),0)-COALESCE(SUM(compinfo.value),0) as profit,orders.sell_date as sell_date FROM orders  
 JOIN order_chunks ON order_chunks.belonging_order_id = orders.id  LEFT JOIN computers on order_chunks.computer_id = computers.id
 LEFT JOIN compinfo ON compinfo.id = orders.id JOIN clients ON orders.client_id = clients.id  LEFT JOIN parts ON order_chunks.part_id = parts.id  
 WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 `,

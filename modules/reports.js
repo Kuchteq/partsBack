@@ -11,25 +11,24 @@ router.get('/getreport/:from/:to', async (req, res) => {
   let fullResponse = {};
   from = from.replaceAll('-', '/');
   to = to.replaceAll('-', '/');
-  console.log(from)
+  console.log(from, to)
   const generalInfo = `
-  WITH all_sale_dets AS (SELECT DISTINCT ON (orders.id) SUM(order_chunks.quantity) as items_amount,
-  SUM(parts.price) as items_value,
-          sum(order_chunks.sell_price - parts.price) as profit
-          FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
-      JOIN clients ON orders.client_id = clients.id
-          JOIN parts ON order_chunks.part_id = parts.id
-          JOIN suppliers ON parts.supplier_id = suppliers.id
-      WHERE orders.sell_date between $1 and $2
-   GROUP BY orders.id, clients.name),
-   new_clients AS (SELECT COUNT(*) FROM clients
-          WHERE clients.join_date between $1 and $2)
-          SELECT SUM(all_sale_dets.profit) as all_profit,
-          SUM(all_sale_dets.items_value) as all_value,
-          SUM(all_sale_dets.items_amount) as all_parts_amount,
-          COUNT(all_sale_dets) as all_orders,
-          CAST(SUM(new_clients.count)/10 AS INT) as new_clients_amount
-          FROM new_clients, all_sale_dets
+  WITH main AS(SELECT COUNT(DISTINCT orders.id) as orders_count, SUM(CASE WHEN order_chunks.part_id IS null 
+    THEN 0 ELSE order_chunks.quantity END) as parts_sold_amount, SUM(DISTINCT order_chunks.sell_price*order_chunks.quantity) as post_sale_all_value,
+    SUM(normal_parts.price*order_chunks.quantity) as parts_value, SUM(comp_parts.price) as computers_value,
+    COUNT(DISTINCT computers.id) as computers_sold_amount
+    FROM orders JOIN order_chunks on order_chunks.belonging_order_id = orders.id
+    LEFT JOIN parts as normal_parts on order_chunks.part_id = normal_parts.id
+    LEFT JOIN computers on order_chunks.computer_id = computers.id
+    LEFT JOIN computer_pieces on computers.id = computer_pieces.belonging_computer_id
+    LEFT JOIN parts as comp_parts on computer_pieces.part_id = comp_parts.id 
+    WHERE orders.sell_date between $1 and $2 ),
+    new_clients AS (SELECT COUNT(*) as clients_amount FROM clients
+    WHERE clients.join_date between $1 and $2),
+    new_suppliers AS (SELECT COUNT(*) as suppliers_amount FROM suppliers
+    WHERE suppliers.join_date between $1 and $2)
+    SELECT main.orders_count, main.parts_sold_amount, main.computers_sold_amount, main.parts_value, main.computers_value, 
+    main.post_sale_all_value, new_clients.clients_amount, new_suppliers.suppliers_amount FROM main, new_clients, new_suppliers 
   `
 
   const byMonthInfo = `
@@ -94,6 +93,7 @@ FROM suppliers JOIN parts ON suppliers.id = parts.supplier_id WHERE parts.purcha
   try {
     const generalInfoResult = await pool.query(generalInfo, [from, to]);
     fullResponse.generalInfo = generalInfoResult.rows[0];
+    console.log(generalInfoResult.rows[0])
     const byMonthInfoResult = await pool.query(byMonthInfo, [from, to]);
     fullResponse.byMonthInfo = byMonthInfoResult.rows;
     const byWeekInfoResult = await pool.query(byWeekInfo, [from, to]);
