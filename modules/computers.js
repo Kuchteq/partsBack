@@ -41,7 +41,7 @@ router.get('/computers/:id', async (req, res) => {
   JOIN segments on segments.id = parts.segment_id
   WHERE computers.id = $1 ORDER BY segment_id`;
 
-  const compInfoQS = `SELECT computers.id as computer_id, computers.name as computer_name, SUM(parts.price) computer_value,
+  const compInfoQS = `SELECT computers.id as computer_id, computers.name as computer_name, SUM(parts.price*computer_pieces.quantity) as computer_value,
     computers.short_note as short_note,
     TO_CHAR(computers.assembled_at :: DATE, 'dd/mm/yyyy hh:mm') AS assembled_at FROM computers
   LEFT JOIN computer_pieces ON computer_pieces.belonging_computer_id = computers.id LEFT JOIN parts on parts.id = computer_pieces.part_id

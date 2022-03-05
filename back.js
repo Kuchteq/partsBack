@@ -28,9 +28,8 @@ const PORT = 5100; //Defining on which port the server will be running
 
 const verifyUser = (req, res, next) => {
   //function used for authentication that looks into the authorization request cookie
-  token = req.cookies.Authorization;
+  const token = req.cookies.Authorization || req.headers.cookies;
   if (!token) return res.sendStatus(403);
-
   //Verify the user by their json webtoken
   jwt.verify(token, 'secretkey', (err, data) => {
     if (err) {

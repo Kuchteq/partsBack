@@ -7,6 +7,7 @@ const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'Part added';
 
 router.get('/getreport/:from/:to', async (req, res) => {
+	console.log(req)
   let { from, to } = req.params;
   let fullResponse = {};
   from = from.replaceAll('-', '/');

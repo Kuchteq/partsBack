@@ -31,12 +31,13 @@ router.get('/inventory', async (req, res) => {
 
   /* short for query string, this is the query asked to the database, the with params function
    is to modify the query and add sorting and filtering functionality and restrict the amount of asked records*/
+  req.query.sort_by = req.query.sort_by == 'segment_id' ? 'segments.name': req.query.sort_by; 
   let conditions = req.query.past == 'true' ? undefined : 'parts.stock > 0'
   const QS = withParams(
     `SELECT parts.id as part_id, segments.name as segments_name, parts.name as part_name, parts.stock, 
     trim_scale(parts.price) as price, parts.short_note, suppliers.name as suppliers_name, parts.suggested_price as suggested_price,
     TO_CHAR(parts.purchase_date :: DATE, 'dd/mm/yyyy') AS purchase_date FROM parts 
-    LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) LEFT JOIN segments ON (parts.segment_id = segments.id)`,
+    LEFT JOIN suppliers ON (parts.supplier_id = suppliers.id) LEFT JOIN segments ON (parts.segment_id = segments.id) `,
     req.query.page, req.query.sort_by, req.query.sort_dir, req.query.s, ['parts'], conditions
   );
   //pool is the connection to the database, QS is the query string, values is the values to be inserted to the query
@@ -156,7 +157,7 @@ router.get('/inventory-all-bycat/:cat', async (req, res) => {
   //controller for getting the basic information on all the parts from the database based on their category
 
   const QS = `SELECT parts.id as value, parts.name as label, parts.stock, parts.price 
-  FROM parts WHERE segment_id = $1 ORDER BY id DESC`;
+  FROM parts WHERE segment_id = $1 AND parts.stock > 0 ORDER BY id DESC`;
 
   pool.query(QS, [req.params.cat], async (err, qResults) => {
     if (err) {

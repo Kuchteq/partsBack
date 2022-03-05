@@ -12,17 +12,20 @@ const bodyErrror = "There's something wrong with data body, see console errors";
 const insertSuccess = 'Part added';
 
 router.get('/orders/:year/:month', (req, res) => {
-  const QS = onlySearch(`WITH compinfo AS (SELECT orders.id as id, SUM(parts.price) AS value FROM orders JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
-  JOIN computers ON order_chunks.computer_id = computers.id JOIN computer_pieces on computers.id = computer_pieces.belonging_computer_id INNER JOIN parts ON
-  computer_pieces.part_id = parts.id WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 GROUP BY orders.id, computers.name)
+  const QS = onlySearch(`
+
 SELECT orders.id as order_id, clients.name as client_name, orders.name as order_name,
-ARRAY_REMOVE(ARRAY_CAT(ARRAY_AGG(parts.name),ARRAY_AGG(computers.name)),NULL) as parts,  SUM(order_chunks.quantity) as items_amount, 
-COALESCE(SUM(parts.price*order_chunks.quantity),0)+COALESCE(SUM(compinfo.value),0) as items_value, 
-SUM(order_chunks.sell_price*order_chunks.quantity) - COALESCE(SUM(parts.price*order_chunks.quantity),0)-COALESCE(SUM(compinfo.value),0) as profit,orders.sell_date as sell_date FROM orders  
-JOIN order_chunks ON order_chunks.belonging_order_id = orders.id  LEFT JOIN computers on order_chunks.computer_id = computers.id
-LEFT JOIN compinfo ON compinfo.id = orders.id JOIN clients ON orders.client_id = clients.id  LEFT JOIN parts ON order_chunks.part_id = parts.id  
-WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 `,
-    req.query.s, ['orders', 'parts', 'clients', 'computers'], null, 'AND (',
+ARRAY_REMOVE(ARRAY_CAT(ARRAY_AGG(normal_parts.name),ARRAY_AGG(DISTINCT computers.name)),NULL) as parts, 
+dist_sum(DISTINCT order_chunks.id, order_chunks.quantity) as items_amount,
+CAST(SUM(CASE WHEN order_chunks.part_id IS NULL then comp_parts.price*computer_pieces.quantity ELSE normal_parts.price*order_chunks.quantity END)AS NUMERIC(18,2)) as items_value,
+ CAST(dist_sum(DISTINCT order_chunks.id, order_chunks.quantity*order_chunks.sell_price)
+-SUM(CASE WHEN order_chunks.part_id IS NULL then comp_parts.price*computer_pieces.quantity ELSE normal_parts.price*order_chunks.quantity END)AS NUMERIC(18,2)) as profit,
+TO_CHAR(orders.sell_date, 'DD/MM/YYYY HH24:MI') as sell_date
+FROM orders JOIN order_chunks ON orders.id = order_chunks.belonging_order_id LEFT JOIN computers on order_chunks.computer_id = computers.id 
+LEFT JOIN computer_pieces on computers.id = computer_pieces.belonging_computer_id LEFT JOIN parts as comp_parts on computer_pieces.part_id = comp_parts.id
+ JOIN clients ON orders.client_id = clients.id  LEFT JOIN parts as normal_parts ON order_chunks.part_id = normal_parts.id
+WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2  `,
+    req.query.s, ['orders', 'normal_parts','comp_parts', 'clients', 'computers'], null, 'AND (',
     `${req.query.s ? ')' : ''} GROUP BY orders.id, clients.name ORDER BY ${req.query.sort_by} ${req.query.sort_dir}`)
   pool.query(QS, [req.params.year, req.params.month], (err, qResults) => {
     if (err) {
@@ -33,7 +36,6 @@ WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sel
     }
   });
 });
-
 router.get('/orders-basic/:id', (req, res) => {
 
   const orderBasicInfo = `SELECT orders.name as name, jsonb_build_object('value', clients.id, 'label', clients.name) as client_obj, sell_date 
@@ -104,7 +106,7 @@ router.post('/orders', async (req, res) => {
             if (!err) {
               const newOrderId = q2Results.rows[0].id;
               parts.map(chunk => {
-                pool.query(createPartChunkQS, [chunk.part_id, chunk.sell_price, chunk.quantity, newOrderId]).catch(err => console.log(err));
+                pool.query(createPartChunkQS, [chunk.part_id, chunk.sell_price, chunk.quantity, newOrderId]).catch(err => console.log(err)).then(()=>console.log('This should be added'));
                 //subtract approriate amount from stock
                 pool.query(subtractPartStockQS, [chunk.quantity, chunk.part_id]);
               });

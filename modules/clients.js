@@ -24,24 +24,27 @@ router.get('/clients', async (req, res) => {
   'Here express will pull data from the database and return it in this form';
 
   //short for query string
-
-  const insideQS = onlySearch(`SELECT DISTINCT ON (clients.id) clients.id as client_id, clients.name as client_name, join_date, email, phone, 
-  adress, nip, clients.short_note as client_short_note, parts.name as last_purchased_part, 
+	//
+	
+  const insideQS = onlySearch(`SELECT DISTINCT ON(parts.name)  parts.name as last_purchased_part, computers.name as last_purchased_computer, clients.id as client_id, clients.name as client_name, join_date, email, phone,
+  adress, nip, clients.short_note as client_short_note, 
   orders.sell_date as last_sold_date FROM clients
   LEFT JOIN orders ON orders.client_id = clients.id
-  LEFT JOIN order_chunks ON order_chunks.belonging_order_id = orders.id 
-  LEFT JOIN parts ON parts.id = order_chunks.part_id
+  LEFT JOIN order_chunks ON order_chunks.belonging_order_id = orders.id
+  LEFT JOIN parts ON  parts.id = order_chunks.part_id LEFT JOIN computers ON computers.id = order_chunks.computer_id
+     ORDER BY parts.name, clients.id, orders.sell_date DESC
   `, req.query.s, ['clients', 'parts']);
 
   const wholeQS = withParams(
-    `WITH distinctClients AS (${insideQS} ORDER BY clients.id, orders.sell_date DESC) SELECT client_id, client_name, TO_CHAR(join_date :: DATE, 'dd/mm/yyyy') 
-    as join_date, phone, email, adress, nip, client_short_note, last_purchased_part, 
+    `WITH distinctClients AS (${insideQS}) SELECT DISTINCT ON (client_id) client_id, client_name, TO_CHAR(join_date :: DATE, 'dd/mm/yyyy')
+    as join_date, phone, email, adress, nip, client_short_note, COALESCE(distinctClients.last_purchased_part, distinctClients.last_purchased_computer),
     TO_CHAR(last_sold_date :: DATE, 'dd/mm/yyyy') as last_sold_date FROM distinctClients`,
     req.query.page,
     req.query.sort_by,
     req.query.sort_dir,
-  );
-
+  );//
+	//
+	console.log(wholeQS)
   pool.query(wholeQS, async (err, qResults) => {
     if (err) {
       console.log(err);
