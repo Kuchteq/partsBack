@@ -24,9 +24,6 @@ LEFT JOIN compinfo ON compinfo.id = orders.id JOIN clients ON orders.client_id =
 WHERE EXTRACT(YEAR FROM orders.sell_date) = $1 AND EXTRACT(MONTH FROM orders.sell_date) = $2 `,
     req.query.s, ['orders', 'parts', 'clients', 'computers'], null, 'AND (',
     `${req.query.s ? ')' : ''} GROUP BY orders.id, clients.name ORDER BY ${req.query.sort_by} ${req.query.sort_dir}`)
-
-
-  console.log(QS)
   pool.query(QS, [req.params.year, req.params.month], (err, qResults) => {
     if (err) {
       console.log(err);

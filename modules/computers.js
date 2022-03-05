@@ -92,6 +92,7 @@ router.post('/computers', async (req, res) => {
       });
     })
     .catch(err => {
+	    console.log(err);
       res.status(406).send(err);
     });
 });
@@ -146,6 +147,7 @@ router.put('/computers/:id', async (req, res) => {
       });
     })
     .catch(err => {
+	    console.log(err)
       res.status(406).send(err);
     });
 });

@@ -24,7 +24,7 @@ const multiSearch = require('./modules/multiSearch');
 */
 const app = express();
 
-const PORT = 5000; //Defining on which port the server will be running
+const PORT = 5100; //Defining on which port the server will be running
 
 const verifyUser = (req, res, next) => {
   //function used for authentication that looks into the authorization request cookie
@@ -46,6 +46,7 @@ const verifyUser = (req, res, next) => {
 
 const protectRoutes = (req, res, next) => {
   //Every route in the app is protected except the log in one
+  req._parsedUrl.pathname = req._parsedUrl.pathname.slice(4);
   if (req._parsedUrl.pathname === '/userlogin') {
     next();
   } else {
@@ -57,7 +58,7 @@ const protectRoutes = (req, res, next) => {
 i.e. requests from different ports, since sveltekit utilities run on different one */
 app.use(
   cors({
-    origin: ['http://localhost:3000', 'http://localhost:5000'],
+    origin: ['http://localhost:3000', 'http://localhost:5200', 'https://system.altis.net.pl' ],
     credentials: true,
   })
 );
